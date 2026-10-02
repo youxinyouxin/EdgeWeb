@@ -1,0 +1,224 @@
+/* 设置面板"控件"样式：开关 / 下拉 / 滑条 / 输入框 / 文本域 / 按钮 / 分组管理行。
+   与 SettingsPanel.module.css（面板外壳与设置行）分工，保持每个文件 ≤300 行。 */
+
+/* —— 拨动开关 —— */
+.switch {
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switchTrack {
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: #bdc1c6;
+  transition: background-color 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.switchThumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  margin-left: 3px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.18s ease;
+}
+
+.switch input:checked + .switchTrack {
+  background: var(--color-primary);
+}
+
+.switch input:checked + .switchTrack .switchThumb {
+  transform: translateX(18px);
+}
+
+/* —— 下拉框 —— */
+.select {
+  height: 32px;
+  max-width: 150px;
+  padding: 0 8px;
+  border: 1px solid var(--color-panel-border);
+  border-radius: 8px;
+  background: var(--color-panel-bg);
+  color: var(--color-panel-text);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+/* —— 滑条 —— */
+.slider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.slider input[type='range'] {
+  width: 110px;
+  accent-color: var(--color-primary);
+}
+
+.sliderValue {
+  font-size: 12px;
+  color: var(--color-panel-sub);
+  min-width: 36px;
+  text-align: right;
+}
+
+/* —— 文本输入 —— */
+.textInput {
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--color-panel-border);
+  border-radius: 8px;
+  background: var(--color-panel-bg);
+  color: var(--color-panel-text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+
+.textInput:focus {
+  border-color: var(--color-primary);
+}
+
+/* 多行文本域（壁纸图片列表） */
+.textarea {
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-panel-border);
+  border-radius: 8px;
+  background: var(--color-panel-bg);
+  color: var(--color-panel-text);
+  font-size: 12px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+}
+
+.textarea:focus {
+  border-color: var(--color-primary);
+}
+
+/* —— 面板按钮 —— */
+.panelButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 16px;
+  border: 1px solid var(--color-panel-border);
+  background: var(--color-panel-bg);
+  color: var(--color-panel-text);
+  font-size: 13px;
+  transition: background-color 0.15s ease;
+}
+
+.panelButton:hover {
+  background: var(--color-panel-hover);
+}
+
+.panelButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.panelButtonDanger {
+  color: var(--color-danger);
+  border-color: rgba(217, 48, 37, 0.4);
+}
+
+/* —— 分组管理（快速链接区） —— */
+.groupList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 8px;
+}
+
+.groupRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.groupInput {
+  flex: 1;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-panel-text);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.groupInput:hover,
+.groupInput:focus {
+  border-color: var(--color-panel-border);
+  background: var(--color-panel-bg);
+  outline: none;
+}
+
+.groupDelete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--color-panel-sub);
+  flex-shrink: 0;
+}
+
+.groupDelete:hover {
+  color: var(--color-danger);
+  background: var(--color-panel-hover);
+}
+
+.groupDelete:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* 选择本地文件按钮行 */
+.filePickerRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 6px;
+}
+
+/* 分区说明文字（浅色小字，用于解释该组设置的作用范围） */
+.note {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-panel-sub);
+  padding-bottom: 8px;
+}
+
+/* 错误 / 状态提示文字 */
+.feedbackText {
+  font-size: 12px;
+  color: var(--color-danger);
+  padding-top: 4px;
+}
+
+/* 隐藏的文件选择 input（由按钮触发） */
+.hiddenFileInput {
+  display: none;
+}

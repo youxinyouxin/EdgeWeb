@@ -1,0 +1,295 @@
+/**
+ * 统一网格：散落快捷方式 + "添加快捷方式"格子（自由定位）+ 浮在上面的卡片（AGENTS.md §3.2）。
+ * - 位置全部显式落位到格子（planBoard 保证不重叠、不产生 CSS Grid 隐式行列）
+ * - 拖快捷方式 / "＋"格子：吸附到任意格子，落点被占时占位条目实时"弹开"（FLIP 动画）；
+ *   落点放不下就整次拒绝，条目保持上一个合法位置
+ * - 拖卡片：位置吸附到格子；卡片尺寸按整格缩放（有缓动过渡）
+ * - 拖动时叠加辅助线网格并高亮落点
+ */
+import { useEffect, useMemo, useRef, useState } from 'react'
+import Card from '../CardCanvas'
+import { useConfig } from '../../store/ConfigContext'
+import { useBoardActions } from '../../store/useGroupActions'
+import type { SiteDraft } from '../../store/useGroupActions'
+import { useCardActions } from '../../store/useCardActions'
+import type { CardLayout } from '../../store/useCardActions'
+import type { SiteItem } from '../../types/config'
+import { PlusIcon } from '../icons'
+import { cellKey, planBoard } from './boardLayout'
+import SiteFormDialog from './SiteFormDialog'
+import SiteTile from './SiteTile'
+import { useReflowAnimation } from './useDragSort'
+import { ADD_TILE_ID, useBoardDnd } from './useBoardDnd'
+import { boardSideInset, useGridMetrics } from './useGridMetrics'
+import styles from './ShortcutGrid.module.css'
+
+/** 表单弹窗状态：新增 / 编辑某个散落快捷方式 / 关闭 */
+type DialogState = { mode: 'add' } | { mode: 'edit'; site: SiteItem } | null
+
+interface ShortcutGridProps {
+  /** 编辑模式（由右上角铅笔控制）："…"常显 */
+  editMode: boolean
+}
+
+export default function ShortcutGrid({ editMode }: ShortcutGridProps) {
+  const { config } = useConfig()
+  const boardActions = useBoardActions()
+  const cardActions = useCardActions()
+  const rootRef = useRef<HTMLDivElement>(null)
+  const board = boardActions.board
+
+  const metrics = useGridMetrics(rootRef, config.grid)
+  // 已提交的布局方案（卡片先占位 → 图标优先用自己存的格子，被占则修复到最近空位）
+  const plan = useMemo(
+    () => planBoard(board, metrics.perRowCount, metrics.rowsFit, config.grid.addTileCell),
+    [board, metrics.perRowCount, metrics.rowsFit, config.grid.addTileCell],
+  )
+  const dnd = useBoardDnd(rootRef, metrics, config.grid, plan)
+
+  const [menuSiteId, setMenuSiteId] = useState<string | null>(null)
+  const [renamingSiteId, setRenamingSiteId] = useState<string | null>(null)
+  const [dialog, setDialog] = useState<DialogState>(null)
+
+  // 拖拽过程中位置变化时，用 FLIP 让图标平滑"弹开"（被拖动的那个严格跟手、不做补间）
+  useReflowAnimation(rootRef, dnd.drag.dragging !== null, dnd.drag.dragging?.id ?? null)
+
+  // 拖拽时显示的辅助线格子（高亮落点）
+  const guideCells = useMemo(() => {
+    const cells: { col: number; row: number; active: boolean }[] = []
+    const active = new Set(dnd.highlight.map(cellKey))
+    for (let row = 0; row < metrics.rowsFit; row += 1) {
+      for (let col = 0; col < metrics.perRowCount; col += 1) {
+        cells.push({ col, row, active: active.has(cellKey({ col, row })) })
+      }
+    }
+    return cells
+  }, [dnd.highlight, metrics.perRowCount, metrics.rowsFit])
+
+  // 点击"…"按钮与菜单以外的任何位置：关闭菜单
+  useEffect(() => {
+    if (!menuSiteId) return
+    const onMouseDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (target.closest('[data-site-menu]')) return
+      setMenuSiteId(null)
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    return () => document.removeEventListener('mousedown', onMouseDown)
+  }, [menuSiteId])
+
+  /** 打开站点（按设置的打开方式） */
+  const openSite = (site: SiteItem) => {
+    if (config.grid.openInNewTab) window.open(site.url, '_blank', 'noopener')
+    else window.location.href = site.url
+  }
+
+  /** 提交散落快捷方式的重命名 */
+  const handleRenameCommit = (site: SiteItem, name: string) => {
+    setRenamingSiteId(null)
+    const trimmed = name.trim()
+    if (trimmed !== '' && trimmed !== site.name) {
+      boardActions.updateBoardSite(site.id, { name: trimmed, url: site.url, icon: site.icon })
+    }
+  }
+
+  /** 提交新增 / 编辑表单（新增落在"添加快捷方式"格子上） */
+  const handleDialogSubmit = (draft: SiteDraft) => {
+    if (!dialog) return
+    if (dialog.mode === 'add') {
+      if (plan.addCell) boardActions.addSite(draft, plan.addCell)
+    } else {
+      boardActions.updateBoardSite(dialog.site.id, draft)
+    }
+    setDialog(null)
+  }
+
+  /** 删除卡片：破坏性操作，先确认（卡片内快捷方式放回网格的空位） */
+  const handleRemoveCard = (cardId: string, name: string) => {
+    const label = name.trim() === '' ? '这张卡片' : `卡片"${name.trim()}"`
+    if (!window.confirm(`确定删除${label}吗？卡片内的快捷方式会放回网格。`)) return
+    const card = cardActions.cards.find((entry) => entry.id === cardId)
+    cardActions.removeCard(cardId, card ? dnd.releaseCells(cardId, card.sites.length) : undefined)
+  }
+
+  /** 新建卡片：优先落在不与现有卡片重叠的空位；区域放不下就提示（不允许卡片叠放） */
+  const handleAddCard = () => {
+    const slot = dnd.findCardSlot()
+    if (!slot) {
+      window.alert('网格里已经没有放新卡片的空位了：可以先删掉或缩小现有卡片，或调小图标与间距。')
+      return
+    }
+    cardActions.addCard(slot)
+  }
+
+  /** 某张卡片内正在被拖动的站点 id */
+  const draggingSiteIdIn = (cardId: string): string | null => {
+    const current = dnd.drag.dragging
+    if (current && current.kind === 'site' && current.origin.type === 'card') {
+      return current.origin.cardId === cardId ? current.id : null
+    }
+    return null
+  }
+
+  /** 网格的格子定义（网格本体与辅助线共用，保证两条线严格重合） */
+  const gridStyle = {
+    gridTemplateColumns: `repeat(${metrics.perRowCount}, ${metrics.tileWidth}px)`,
+    gridAutoRows: `${metrics.tileHeight}px`,
+    columnGap: config.grid.columnGap,
+    rowGap: config.grid.rowGap,
+  }
+  const inset = boardSideInset(metrics)
+  // "添加快捷方式"格子的落位：拖拽预览优先，其次是它记住的位置 / 第一个空格
+  const addCell = dnd.preview[ADD_TILE_ID] ?? plan.addCell
+
+  return (
+    <div className={styles.wrap}>
+      <div
+        ref={rootRef}
+        className={`${styles.board} ${config.grid.hoverZoom ? styles.gridZoom : ''}`}
+        style={{ ...gridStyle, paddingLeft: inset, paddingRight: inset }}
+        {...dnd.drag.boardHandlers}
+      >
+        {board.map((item) => {
+          if (item.kind === 'site') {
+            // 拖拽预览优先；区域放不下（分不到格子）的条目不渲染
+            const cell = dnd.preview[item.site.id] ?? plan.siteCells.get(item.site.id)
+            if (!cell) return null
+            return (
+              <SiteTile
+                key={item.site.id}
+                site={item.site}
+                iconSize={config.grid.iconSize}
+                tileWidth={metrics.tileWidth}
+                editMode={editMode}
+                menuOpen={menuSiteId === item.site.id}
+                renaming={renamingSiteId === item.site.id}
+                dragging={
+                  dnd.drag.dragging?.kind === 'site' &&
+                  dnd.drag.dragging.origin.type === 'board' &&
+                  dnd.drag.dragging.id === item.site.id
+                }
+                cell={cell}
+                dataAttrs={{ 'data-board-site': '', 'data-flip-id': item.site.id }}
+                onOpenSite={() => openSite(item.site)}
+                onToggleMenu={() =>
+                  setMenuSiteId((current) => (current === item.site.id ? null : item.site.id))
+                }
+                onStartRename={() => {
+                  setMenuSiteId(null)
+                  setRenamingSiteId(item.site.id)
+                }}
+                onCommitRename={(name) => handleRenameCommit(item.site, name)}
+                onStartEdit={() => {
+                  setMenuSiteId(null)
+                  setDialog({ mode: 'edit', site: item.site })
+                }}
+                onDelete={() => {
+                  setMenuSiteId(null)
+                  boardActions.removeBoardSite(item.site.id)
+                }}
+                dragHandlers={dnd.drag.draggableFor({
+                  kind: 'site',
+                  id: item.site.id,
+                  origin: { type: 'board' },
+                })}
+              />
+            )
+          }
+          return (
+            <Card
+              key={item.card.id}
+              card={item.card}
+              metrics={metrics}
+              grid={config.grid}
+              editMode={editMode}
+              livePosition={
+                dnd.liveCard && dnd.liveCard.id === item.card.id
+                  ? { col: dnd.liveCard.col, row: dnd.liveCard.row }
+                  : null
+              }
+              dragging={dnd.drag.dragging?.kind === 'card' && dnd.drag.dragging.id === item.card.id}
+              isDropTarget={dnd.drag.dropCardId === item.card.id}
+              draggingSiteId={draggingSiteIdIn(item.card.id)}
+              dragHandlers={dnd.drag.draggableFor({
+                kind: 'card',
+                id: item.card.id,
+                origin: { type: 'board' },
+              })}
+              dropHandlers={dnd.drag.cardHandlers(item.card.id)}
+              siteDragHandlersFor={(site: SiteItem) =>
+                dnd.drag.draggableFor({
+                  kind: 'site',
+                  id: site.id,
+                  origin: { type: 'card', cardId: item.card.id },
+                })
+              }
+              validateLayout={(next) => dnd.validateCardLayout(item.card.id, next)}
+              onLayoutChange={(layout: CardLayout) =>
+                cardActions.updateCardLayout(item.card.id, layout)
+              }
+              onRemove={() => handleRemoveCard(item.card.id, item.card.name)}
+            />
+          )
+        })}
+
+        {addCell && (
+          <div
+            className={`${styles.addTile} ${dnd.drag.dragging?.kind === 'addTile' ? styles.tileDragging : ''}`}
+            role="button"
+            tabIndex={0}
+            title="添加快捷方式（可按住拖到任意空格）"
+            style={{ width: metrics.tileWidth, gridColumnStart: addCell.col + 1, gridRowStart: addCell.row + 1 }}
+            data-flip-id={ADD_TILE_ID}
+            draggable
+            {...dnd.drag.draggableFor({ kind: 'addTile', id: ADD_TILE_ID, origin: { type: 'board' } })}
+            onClick={() => setDialog({ mode: 'add' })}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') setDialog({ mode: 'add' })
+            }}
+          >
+            <span
+              className={styles.addIconBox}
+              style={{
+                width: config.grid.iconSize,
+                height: config.grid.iconSize,
+                borderRadius: Math.round(config.grid.iconSize * 0.24),
+              }}
+            >
+              <PlusIcon size={Math.round(config.grid.iconSize * 0.44)} />
+            </span>
+            <span className={styles.addLabel}>添加快捷方式</span>
+          </div>
+        )}
+
+        {/* 拖动时显示辅助线网格（复用同一套格子定义，线与格子严格重合） */}
+        {dnd.drag.dragging && (
+          <div className={styles.guides} style={{ ...gridStyle, paddingLeft: inset, paddingRight: inset }}>
+            {guideCells.map(({ col, row, active }) => (
+              <span
+                key={`${col},${row}`}
+                className={active ? styles.guideCellActive : styles.guideCell}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <button className={styles.addCard} onClick={handleAddCard}>
+        <PlusIcon size={15} />
+        新建卡片
+      </button>
+
+      {dialog && (
+        <SiteFormDialog
+          initial={
+            dialog.mode === 'edit'
+              ? { name: dialog.site.name, url: dialog.site.url, icon: dialog.site.icon }
+              : null
+          }
+          onSubmit={handleDialogSubmit}
+          onClose={() => setDialog(null)}
+        />
+      )}
+    </div>
+  )
+}

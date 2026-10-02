@@ -1,0 +1,217 @@
+/* 统一网格与格子样式：网格容器、图标格子、名称、添加格子、拖拽指示 */
+
+/* —— 统一网格外壳（网格占满剩余高度，下方常驻"新建卡片"按钮） —— */
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  margin-top: 44px;
+  padding-bottom: 16px;
+}
+
+/* —— 统一网格容器：区域固定（不滚动），条目全部显式落位，绝不产生隐式行列 —— */
+.board {
+  position: relative;
+  display: grid;
+  justify-content: center;
+  align-content: start;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* —— 卡片内宫格 —— */
+.grid {
+  display: grid;
+  grid-auto-flow: row dense;
+  justify-content: start;
+}
+
+/* —— 拖动时的辅助线网格：与网格本体共用同一套格子定义，线严格重合 —— */
+.guides {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  justify-content: center;
+  align-content: start;
+  pointer-events: none;
+ }
+
+.guideCell {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+}
+
+/* 落点所在格：高亮 */
+.guideCellActive {
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+  background: rgba(11, 87, 208, 0.22);
+  border-radius: 10px;
+}
+
+/* 悬停放大动效（可在设置关闭） */
+.gridZoom .tile:hover .iconBox {
+  transform: scale(1.12);
+}
+
+/* —— 格子 —— */
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-radius: 12px;
+  user-select: none;
+  cursor: pointer;
+}
+
+/* 被拖动中的格子：半透明 */
+.tileDragging {
+  opacity: 0.4;
+}
+
+/* 图标外层：承载"…"按钮与菜单的定位上下文 */
+.iconWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* 图标盒子：白底圆角（承载图片 / emoji / 首字母） */
+.iconBox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  transition: transform 0.16s ease;
+}
+
+.iconImage {
+  width: 62%;
+  height: 62%;
+  object-fit: contain;
+}
+
+.emojiIcon,
+.initialIcon {
+  line-height: 1;
+}
+
+.initialIcon {
+  color: #fff;
+}
+
+/* "…"按钮：默认隐藏，悬停格子（或编辑模式）时出现 */
+.dotsButton {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: #5f6368;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.tile:hover .dotsButton,
+.dotsButtonVisible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.dotsButton:hover {
+  background: #fff;
+}
+
+/* —— 名称 —— */
+.name {
+  max-width: 100%;
+  font-size: 13px;
+  color: var(--color-on-wallpaper);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 内联重命名输入框 */
+.nameInput {
+  width: 100%;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #1f1f1f;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* —— "＋"添加格子（可像图标一样拖动到任意空格） —— */
+.addTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-radius: 12px;
+  user-select: none;
+  cursor: pointer;
+}
+
+.addIconBox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.88);
+  color: #444;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: transform 0.16s ease, background-color 0.15s ease;
+}
+
+.addTile:hover .addIconBox {
+  transform: scale(1.06);
+  background: #fff;
+}
+
+.addLabel {
+  max-width: 100%;
+  font-size: 13px;
+  color: var(--color-on-wallpaper);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* —— 网格下方的"新建卡片"按钮 —— */
+.addCard {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 17px;
+  font-size: 13px;
+  color: var(--color-on-wallpaper);
+  background: rgba(255, 255, 255, 0.18);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+  transition: background-color 0.15s ease;
+}
+
+.addCard:hover {
+  background: rgba(255, 255, 255, 0.3);
+}

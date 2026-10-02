@@ -1,0 +1,138 @@
+/* 卡片面板样式：浮在网格上的容器（整格定位 + 整格缩放 + 浮层标题 + 五个缩放手柄） */
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  /* 不透明度由设置面板控制（--card-alpha，0-1），只影响底衬，不影响卡片内的图标 */
+  background: rgba(28, 30, 36, var(--card-alpha, 0.34));
+  /* 边框用 inset 描边：不占布局尺寸，卡片宽度才能"正好等于整数个格子" */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  cursor: move;
+  /* 缩放时尺寸按整格跳变，靠这条过渡补成"吸附 + 缓动"的手感 */
+  transition: width 0.12s ease, height 0.12s ease, box-shadow 0.16s ease;
+}
+
+.card:hover {
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.34), inset 0 0 0 1px rgba(255, 255, 255, 0.38);
+}
+
+/* 卡片自身被拖动中 */
+.cardDragging {
+  opacity: 0.5;
+}
+
+/* 快捷方式正悬停在卡片上（将被收进卡片） */
+.cardDropInto {
+  box-shadow: 0 0 0 2px var(--color-primary), 0 12px 34px rgba(0, 0, 0, 0.34),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.38);
+}
+
+/* —— 浮层：标题（左）+ 关闭按钮（右），不占额外的网格行 —— */
+.cardOverlay {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.cardTitle {
+  margin-right: auto;
+  max-width: 100%;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(20, 22, 28, 0.55);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-on-wallpaper);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardRemove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  color: var(--color-on-wallpaper);
+  background: rgba(255, 255, 255, 0.18);
+  opacity: 0;
+  pointer-events: auto;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.card:hover .cardRemove {
+  opacity: 1;
+}
+
+.cardRemove:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+/* —— 内容区：内嵌宫格；图标比格子多时卡片内滚动（细滚动条） —— */
+.cardBody {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.32) transparent;
+}
+
+/* —— 整格缩放手柄（右 / 左 / 下 / 右下 / 左下） —— */
+.handle {
+  position: absolute;
+  z-index: 1;
+}
+
+.handle_e {
+  right: -3px;
+  top: 14px;
+  bottom: 10px;
+  width: 7px;
+  cursor: ew-resize;
+}
+
+.handle_w {
+  left: -3px;
+  top: 14px;
+  bottom: 10px;
+  width: 7px;
+  cursor: ew-resize;
+}
+
+.handle_s {
+  bottom: -3px;
+  left: 10px;
+  right: 10px;
+  height: 7px;
+  cursor: ns-resize;
+}
+
+.handle_se {
+  bottom: -4px;
+  right: -4px;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+}
+
+.handle_sw {
+  bottom: -4px;
+  left: -4px;
+  width: 14px;
+  height: 14px;
+  cursor: nesw-resize;
+}

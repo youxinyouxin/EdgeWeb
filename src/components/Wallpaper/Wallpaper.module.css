@@ -1,0 +1,43 @@
+/* 壁纸层根容器：固定整屏、永远在最底层（z-index 0），页面内容层在其上 */
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+/* 内置渐变兜底：媒体加载失败 / 断网 / 未配置壁纸时显示的沉稳渐变 */
+.fallback {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #2b3a55 0%, #3f4e3f 45%, #1f2b23 100%);
+}
+
+/* 图片 / 视频统一铺满整屏（保持比例、裁边填满） */
+.media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 轮换切换：当前张淡入覆盖上一张（时长与 useRotateImages 的 FADE_MS 一致） */
+.fadeIn {
+  animation: wallpaperFadeIn 600ms ease-out;
+}
+
+@keyframes wallpaperFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 遮罩层：暗度与模糊数值由内联样式注入（来自设置面板滑条） */
+.overlay {
+  position: absolute;
+  inset: 0;
+}

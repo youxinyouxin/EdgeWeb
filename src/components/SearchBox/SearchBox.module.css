@@ -1,0 +1,143 @@
+/* 搜索框整体容器：定宽居中（宽度由 App 布局层决定对齐），下拉面板相对它定位 */
+.root {
+  position: relative;
+  width: min(640px, 92vw);
+}
+
+/* 白底胶囊输入框 */
+.box {
+  display: flex;
+  align-items: center;
+  height: 56px;
+  background: var(--color-panel-bg);
+  border-radius: 28px;
+  box-shadow: var(--shadow-search);
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+}
+
+/* 聚焦时阴影加深，提示当前状态 */
+.boxFocused {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.input {
+  flex: 1;
+  height: 100%;
+  padding: 0 24px;
+  font-size: 16px;
+  color: var(--color-panel-text);
+  background: transparent;
+}
+
+.input::placeholder {
+  color: var(--color-panel-sub);
+}
+
+/* 蓝色搜索按钮：占满右侧，右角跟随胶囊圆角 */
+.searchButton {
+  width: 64px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+  background: var(--color-primary);
+  border-radius: 0 28px 28px 0;
+  transition: background-color 0.15s ease;
+}
+
+.searchButton:hover {
+  background: var(--color-primary-hover);
+}
+
+/* —— 下拉面板（历史 / 联想共用外壳）—— */
+.dropdown {
+  position: absolute;
+  top: 64px;
+  left: 0;
+  right: 0;
+  padding: 8px 0;
+  background: var(--color-panel-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-panel);
+  overflow: hidden;
+  animation: dropdownIn 0.15s ease-out;
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 单行：图标 + 文本 +（历史行）删除按钮 */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+  padding: 0 20px;
+  font-size: 15px;
+  color: var(--color-panel-text);
+  cursor: pointer;
+}
+
+.row:hover,
+.rowActive {
+  background: var(--color-panel-hover);
+}
+
+.rowIcon {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--color-panel-sub);
+}
+
+.rowText {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 删除按钮：悬停该行或键盘高亮时才出现 */
+.rowDelete {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 50%;
+  color: var(--color-panel-sub);
+  flex-shrink: 0;
+}
+
+.row:hover .rowDelete,
+.rowActive .rowDelete {
+  display: flex;
+}
+
+.rowDelete:hover {
+  color: var(--color-danger);
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* 底部"清空全部历史" */
+.clearAll {
+  display: block;
+  width: 100%;
+  padding: 10px 20px 6px;
+  text-align: left;
+  font-size: 14px;
+  color: var(--color-primary);
+}
+
+.clearAll:hover {
+  text-decoration: underline;
+}

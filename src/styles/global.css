@@ -1,0 +1,74 @@
+/**
+ * 全局样式：重置 + 主题 CSS 变量。
+ * 主题（深/浅色）全部通过 :root[data-theme] 下的变量覆盖实现，
+ * 组件样式只引用变量、不写死颜色，方便「跟随壁纸自动」主题在后续阶段接入。
+ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* —— 主色（Edge 蓝：搜索按钮 / 开关开启态 / 主按钮）—— */
+  --color-primary: #0b57d0;
+  --color-primary-hover: #0a4cb5;
+  --color-danger: #d93025;
+
+  /* —— 壁纸上的前景（顶部文字等）—— */
+  --color-on-wallpaper: #ffffff;
+  --color-on-wallpaper-sub: rgba(255, 255, 255, 0.85);
+
+  /* —— 卡片 / 面板 / 下拉 —— */
+  --color-panel-bg: rgba(255, 255, 255, 0.98);
+  --color-panel-text: #1f1f1f;
+  --color-panel-sub: #5f6368;
+  --color-panel-border: #e5e5e5;
+  --color-panel-hover: #f1f3f4;
+  /* 设置面板内"分组卡片"的浅灰底色 */
+  --color-section-bg: #f3f4f6;
+
+  /* —— 圆角与阴影 —— */
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --shadow-panel: 0 6px 24px rgba(0, 0, 0, 0.18);
+  --shadow-search: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 深色主题：仅覆盖变量，所有组件自动跟随 */
+:root[data-theme='dark'] {
+  --color-panel-bg: rgba(41, 42, 45, 0.98);
+  --color-panel-text: #e8eaed;
+  --color-panel-sub: #9aa0a6;
+  --color-panel-border: #3c4043;
+  --color-panel-hover: #35363a;
+  --color-section-bg: #35363a;
+  --shadow-panel: 0 6px 24px rgba(0, 0, 0, 0.5);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  /* 启动页不允许滚动，永远铺满一屏 */
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+input {
+  font-family: inherit;
+  border: none;
+  outline: none;
+}
