@@ -12,11 +12,14 @@
   padding-bottom: 16px;
 }
 
-/* —— 统一网格容器：区域固定（不滚动），条目全部显式落位，绝不产生隐式行列 —— */
+/* —— 统一网格容器：区域固定（不滚动），条目全部显式落位，绝不产生隐式行列 ——
+   水平方向不居中（justify-content: start）：居中由左右内边距（metrics.gridPadding）完成，
+   把"可见窗口"精确摆到以中轴居中。条目的像素位置只由中轴与格子尺寸决定，
+   与窗口宽度、列数、浏览器缩放完全无关（AGENTS.md §3.2） */
 .board {
   position: relative;
   display: grid;
-  justify-content: center;
+  justify-content: start;
   align-content: start;
   width: 100%;
   flex: 1;
@@ -36,7 +39,7 @@
   position: absolute;
   inset: 0;
   display: grid;
-  justify-content: center;
+  justify-content: start;
   align-content: start;
   pointer-events: none;
  }

@@ -23,7 +23,7 @@ interface SiteTileProps {
   renaming: boolean
   /** 是否正在被拖动 */
   dragging: boolean
-  /** 显式落位到网格的哪个格子（仅在统一网格上使用；缺省表示在卡片内由宫格自动排布） */
+  /** 显式落位到网格的哪个格子（窗口内局部列号，0 起；缺省表示在卡片内由宫格自动排布） */
   cell?: { col: number; row: number }
   /** 需要附加到格子根元素上的 data-* 属性（用于网格 / 卡片落点选择） */
   dataAttrs?: Record<string, string | number>

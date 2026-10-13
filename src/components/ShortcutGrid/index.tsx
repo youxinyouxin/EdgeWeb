@@ -1,10 +1,7 @@
 /**
- * 统一网格：散落快捷方式 + "添加快捷方式"格子（自由定位）+ 浮在上面的卡片（AGENTS.md §3.2）。
- * - 位置全部显式落位到格子（planBoard 保证不重叠、不产生 CSS Grid 隐式行列）
- * - 拖快捷方式 / "＋"格子：吸附到任意格子，落点被占时占位条目实时"弹开"（FLIP 动画）；
- *   落点放不下就整次拒绝，条目保持上一个合法位置
- * - 拖卡片：位置吸附到格子；卡片尺寸按整格缩放（有缓动过渡）
- * - 拖动时叠加辅助线网格并高亮落点
+ * 统一网格：散落快捷方式 + "添加快捷方式"格子 + 浮在上面的卡片（AGENTS.md §3.2）。
+ * - 网格固定为 2 × grid.axisCol 列、中轴对准页面竖直中轴线；窗口变窄时左右各少一列，窗口外条目不渲染
+ * - 拖快捷方式 / "＋" / 卡片：吸附到格子，占位条目实时"弹开"（FLIP）；放不下就整次拒绝；拖动时显示辅助线
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Card from '../CardCanvas'
@@ -13,14 +10,14 @@ import { useBoardActions } from '../../store/useGroupActions'
 import type { SiteDraft } from '../../store/useGroupActions'
 import { useCardActions } from '../../store/useCardActions'
 import type { CardLayout } from '../../store/useCardActions'
-import type { SiteItem } from '../../types/config'
+import type { GridCell, SiteItem } from '../../types/config'
 import { PlusIcon } from '../icons'
 import { cellKey, planBoard } from './boardLayout'
 import SiteFormDialog from './SiteFormDialog'
 import SiteTile from './SiteTile'
 import { useReflowAnimation } from './useDragSort'
 import { ADD_TILE_ID, useBoardDnd } from './useBoardDnd'
-import { boardSideInset, useGridMetrics } from './useGridMetrics'
+import { useGridMetrics } from './useGridMetrics'
 import styles from './ShortcutGrid.module.css'
 
 /** 表单弹窗状态：新增 / 编辑某个散落快捷方式 / 关闭 */
@@ -39,10 +36,10 @@ export default function ShortcutGrid({ editMode }: ShortcutGridProps) {
   const board = boardActions.board
 
   const metrics = useGridMetrics(rootRef, config.grid)
-  // 已提交的布局方案（卡片先占位 → 图标优先用自己存的格子，被占则修复到最近空位）
+  // 已提交的布局方案（卡片先占位 → 图标优先用自己存的格子，落在窗口外的不渲染）
   const plan = useMemo(
-    () => planBoard(board, metrics.perRowCount, metrics.rowsFit, config.grid.addTileCell),
-    [board, metrics.perRowCount, metrics.rowsFit, config.grid.addTileCell],
+    () => planBoard(board, metrics.perRowCount, metrics.rowsFit, metrics.startCol, config.grid.addTileCell),
+    [board, metrics.perRowCount, metrics.rowsFit, metrics.startCol, config.grid.addTileCell],
   )
   const dnd = useBoardDnd(rootRef, metrics, config.grid, plan)
 
@@ -57,11 +54,9 @@ export default function ShortcutGrid({ editMode }: ShortcutGridProps) {
   const guideCells = useMemo(() => {
     const cells: { col: number; row: number; active: boolean }[] = []
     const active = new Set(dnd.highlight.map(cellKey))
-    for (let row = 0; row < metrics.rowsFit; row += 1) {
-      for (let col = 0; col < metrics.perRowCount; col += 1) {
+    for (let row = 0; row < metrics.rowsFit; row += 1)
+      for (let col = 0; col < metrics.perRowCount; col += 1)
         cells.push({ col, row, active: active.has(cellKey({ col, row })) })
-      }
-    }
     return cells
   }, [dnd.highlight, metrics.perRowCount, metrics.rowsFit])
 
@@ -69,8 +64,7 @@ export default function ShortcutGrid({ editMode }: ShortcutGridProps) {
   useEffect(() => {
     if (!menuSiteId) return
     const onMouseDown = (event: MouseEvent) => {
-      const target = event.target as HTMLElement
-      if (target.closest('[data-site-menu]')) return
+      if ((event.target as HTMLElement).closest('[data-site-menu]')) return
       setMenuSiteId(null)
     }
     document.addEventListener('mousedown', onMouseDown)
@@ -92,11 +86,14 @@ export default function ShortcutGrid({ editMode }: ShortcutGridProps) {
     }
   }
 
-  /** 提交新增 / 编辑表单（新增落在"添加快捷方式"格子上） */
+  /** 窗口内局部格子 → 配置里的绝对格子（写回配置时才换算） */
+  const toAbsolute = (cell: GridCell): GridCell => ({ col: cell.col + metrics.startCol, row: cell.row })
+
+    /** 提交新增 / 编辑表单（新增落在"添加快捷方式"格子上） */
   const handleDialogSubmit = (draft: SiteDraft) => {
     if (!dialog) return
     if (dialog.mode === 'add') {
-      if (plan.addCell) boardActions.addSite(draft, plan.addCell)
+      if (plan.addCell) boardActions.addSite(draft, toAbsolute(plan.addCell))
     } else {
       boardActions.updateBoardSite(dialog.site.id, draft)
     }
@@ -124,20 +121,20 @@ export default function ShortcutGrid({ editMode }: ShortcutGridProps) {
   /** 某张卡片内正在被拖动的站点 id */
   const draggingSiteIdIn = (cardId: string): string | null => {
     const current = dnd.drag.dragging
-    if (current && current.kind === 'site' && current.origin.type === 'card') {
-      return current.origin.cardId === cardId ? current.id : null
-    }
-    return null
+    if (!current || current.kind !== 'site' || current.origin.type !== 'card') return null
+    return current.origin.cardId === cardId ? current.id : null
   }
 
-  /** 网格的格子定义（网格本体与辅助线共用，保证两条线严格重合） */
+  /** 网格的格子定义（网格本体与辅助线共用，保证两条线严格重合）：
+      列数 = 可见窗口列数；左右内边距把窗口精确摆到以中轴居中 */
   const gridStyle = {
     gridTemplateColumns: `repeat(${metrics.perRowCount}, ${metrics.tileWidth}px)`,
     gridAutoRows: `${metrics.tileHeight}px`,
     columnGap: config.grid.columnGap,
     rowGap: config.grid.rowGap,
+    paddingLeft: metrics.gridPadding,
+    paddingRight: metrics.gridPadding,
   }
-  const inset = boardSideInset(metrics)
   // "添加快捷方式"格子的落位：拖拽预览优先，其次是它记住的位置 / 第一个空格
   const addCell = dnd.preview[ADD_TILE_ID] ?? plan.addCell
 
@@ -146,7 +143,7 @@ export default function ShortcutGrid({ editMode }: ShortcutGridProps) {
       <div
         ref={rootRef}
         className={`${styles.board} ${config.grid.hoverZoom ? styles.gridZoom : ''}`}
-        style={{ ...gridStyle, paddingLeft: inset, paddingRight: inset }}
+        style={gridStyle}
         {...dnd.drag.boardHandlers}
       >
         {board.map((item) => {
@@ -195,10 +192,14 @@ export default function ShortcutGrid({ editMode }: ShortcutGridProps) {
               />
             )
           }
+          // 卡片整块落在窗口外 → 整张不渲染（数据不动，窗口变宽就回来）
+          const at = plan.cardCells.get(item.card.id)
+          if (!at) return null
           return (
             <Card
               key={item.card.id}
               card={item.card}
+              at={at}
               metrics={metrics}
               grid={config.grid}
               editMode={editMode}
@@ -225,7 +226,11 @@ export default function ShortcutGrid({ editMode }: ShortcutGridProps) {
               }
               validateLayout={(next) => dnd.validateCardLayout(item.card.id, next)}
               onLayoutChange={(layout: CardLayout) =>
-                cardActions.updateCardLayout(item.card.id, layout)
+                // 缩放提交的是窗口内局部列号 → 换算成绝对列号再写回配置
+                cardActions.updateCardLayout(item.card.id, {
+                  ...layout,
+                  col: layout.col + metrics.startCol,
+                })
               }
               onRemove={() => handleRemoveCard(item.card.id, item.card.name)}
             />
@@ -263,7 +268,7 @@ export default function ShortcutGrid({ editMode }: ShortcutGridProps) {
 
         {/* 拖动时显示辅助线网格（复用同一套格子定义，线与格子严格重合） */}
         {dnd.drag.dragging && (
-          <div className={styles.guides} style={{ ...gridStyle, paddingLeft: inset, paddingRight: inset }}>
+          <div className={styles.guides} style={gridStyle}>
             {guideCells.map(({ col, row, active }) => (
               <span
                 key={`${col},${row}`}

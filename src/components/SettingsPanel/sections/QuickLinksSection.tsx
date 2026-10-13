@@ -1,7 +1,7 @@
 /**
  * 设置分组：快速链接和搜索。
  * 这些布局项作用于统一网格里的所有格子（散落快捷方式与卡片内宫格共用同一套格子）。
- * 网格区高度由视口限定、不滚动，因此没有"行数 / 分页"设置（AGENTS.md §3.2）。
+ * 网格是一张**固定的网格**（居中、左右各留一个图标格），所以没有"行数 / 分页"设置（AGENTS.md §3.2）。
  */
 import { useConfig } from '../../../store/ConfigContext'
 import { SectionCard } from '../SectionCard'
@@ -15,8 +15,9 @@ export default function QuickLinksSection() {
   return (
     <SectionCard title="快速链接和搜索">
       <p className={styles.note}>
-        每行个数决定网格一行放几个格子，卡片占的格子数按同一套格子计算；网格区高度由视口限定、
-        不滚动（左右各内缩一个图标格），放不下的条目会被裁掉。
+        网格以中轴为界、按页面宽度向两侧对称延伸（中轴恒在正中，左右各留一个图标格）：
+        窗口变窄就左右各少一列，变宽就各多一列 —— 两侧空间都能放图标，放不下的条目只是暂时隐藏
+        （坐标不变，窗口变宽就回来）。"自动适应"= 铺满页面宽度；"手动指定"= 按占页面宽度的比例排格子。
         图标大小与间距对散落快捷方式与卡片内宫格同时生效；改动后卡片与图标都按整格重排。
       </p>
 
@@ -32,13 +33,14 @@ export default function QuickLinksSection() {
       </SettingRow>
 
       {grid.perRowMode === 'fixed' && (
-        <SettingRow label="每行数量">
+        <SettingRow label="宽度占比" hint="占页面宽度的比例，越小每行列数越少">
           <Slider
-            value={grid.perRow}
-            min={5}
-            max={15}
-            unit=" 个"
-            onChange={(value) => patch('grid', { perRow: value })}
+            value={grid.perRowPercent}
+            min={20}
+            max={100}
+            step={5}
+            unit="%"
+            onChange={(value) => patch('grid', { perRowPercent: value })}
           />
         </SettingRow>
       )}

@@ -1,7 +1,7 @@
 /**
- * 统一网格的布局引擎（纯函数，与 React 无关）。
- * - planBoard：卡片先占位 → 散落快捷方式优先用自己存的格子，被占 / 越界时挪到最近的空位。
- *   保证：画面永不重叠、绝不创建 CSS Grid 隐式行列、放不下的条目直接不渲染。
+ * 统一网格的布局引擎（纯函数，与 React 无关）。**格子一律是窗口内的局部列号（0 起）**。
+ * - planBoard：卡片先占位 → 散落快捷方式优先用自己存的格子：在窗口内被占时挪到最近空位，
+ *   落在窗口外则**不渲染**（坐标不改写）。保证：画面永不重叠、绝不创建 CSS Grid 隐式行列。
  * - tryDrop：拖拽落点判定。把目标格占住，被它盖住的图标各自挪到最近的空位；
  *   只要有一块挪不动就整次失败，由调用方拒绝这次拖动。
  */
@@ -138,19 +138,58 @@ export interface CardPlacement {
   rows: number
 }
 
-/** 统一网格的渲染方案 */
+/** 中轴列数的默认值（= 固定网格列数的一半，见 AGENTS.md §3.2） */
+export const DEFAULT_AXIS_COL = 5
+
+/** 中轴列数的合法范围 */
+const AXIS_COL_MIN = 2
+const AXIS_COL_MAX = 20
+
+/**
+ * 按现有构图推出中轴列数：取构图中心处的列边界，让"整张网格"（中轴左右各 axisCol 列）
+ * 正好把构图摆到页面正中。只在配置里还没有 axisCol 时用一次，结果会被落盘冻结
+ * （之后用户怎么增删拖动都不再改它，否则构图会在两次打开之间漂移）。
+ */
+export function deriveAxisCol(items: BoardItem[]): number {
+  let min = Number.POSITIVE_INFINITY
+  let max = -1
+  for (const item of items) {
+    if (item.kind === 'site') {
+      min = Math.min(min, item.col)
+      max = Math.max(max, item.col)
+    } else {
+      min = Math.min(min, item.card.col)
+      max = Math.max(max, item.card.col + item.card.cols - 1)
+    }
+  }
+  if (max < 0) return DEFAULT_AXIS_COL
+  return clamp(Math.round((min + max + 1) / 2), AXIS_COL_MIN, AXIS_COL_MAX)
+}
+
+/** 统一网格的渲染方案（格子一律是**窗口内**的局部列号：0 起；绝对列号 = 局部列号 + startCol） */
 export interface BoardPlan {
-  /** 散落快捷方式 → 渲染格子（null = 区域放不下，不渲染） */
+  /** 散落快捷方式 → 渲染格子（null = 落在窗口外，不渲染） */
   siteCells: Map<string, GridCell | null>
-  /** 卡片 → 渲染位置（已夹取到区域内） */
+  /** 卡片 → 渲染位置（整块都在窗口内才有；不在窗口里的卡片整张不渲染） */
   cardCells: Map<string, GridCell>
-  /** "添加快捷方式"格子（null = 区域已满，不渲染） */
+  /** "添加快捷方式"格子（null = 窗口里没有空格，不渲染） */
   addCell: GridCell | null
   /** 完整占位图（拖拽落点判定用） */
   grid: CellGrid
 }
 
-/** 把卡片占位夹取到区域范围内（窗口变小后卡片仍留在可见区域里） */
+/** 一块 cols × rows 是否**完整**落在窗口里（落在外面的不渲染，绝不被挪动） */
+function fitsInWindow(
+  at: GridCell,
+  cols: number,
+  rows: number,
+  perRowCount: number,
+  rowsFit: number,
+): boolean {
+  return at.col >= 0 && at.row >= 0 && at.col + cols <= perRowCount && at.row + rows <= rowsFit
+}
+
+/** 把卡片占位夹取到窗口范围内（拖动 / 缩放时的落点校验用） */
 export function clampPlacement(
   card: CardPlacement,
   perRowCount: number,
@@ -162,46 +201,54 @@ export function clampPlacement(
 }
 
 /**
- * 生成渲染方案（已提交的布局）：
- * 1. 卡片先落位，两张卡片撞在一起时后者被挪到最近空位；
- * 2. 散落快捷方式优先用自己存的格子，被占 / 越界时挪到最近空位，放不下就不渲染；
- * 3. "添加快捷方式"优先用它记住的格子（被占则临时让到最近空位），没记过就用剩下的第一个空格。
+ * 生成渲染方案（已提交的布局）。**坐标一律是窗口内的局部列号**（0 起）：
+ * 1. 卡片先落位（整块必须落在窗口内，否则整张不渲染；两张卡片撞在一起时后者挪到最近空位）；
+ * 2. 散落快捷方式优先用自己存的格子：落在窗口内就用它（被占则挪到窗口内最近空位），
+ *    落在窗口外就**不渲染**（坐标保持原样，窗口变回去就再出现）；
+ * 3. "添加快捷方式"优先用它记住的格子（超出窗口 / 被占则在窗口内找最近的空位）。
  * 拖拽过程中的实时预览由调用方在这之上叠加（见 useBoardDnd）。
- * @param addTileAt "添加快捷方式"格子记住的位置（null = 自动）
+ * @param startCol   窗口最左列的绝对列号（局部列号 = 绝对列号 − startCol）
+ * @param addTileAt  "添加快捷方式"格子记住的**绝对**位置（null = 自动）
  */
 export function planBoard(
   items: BoardItem[],
   perRowCount: number,
   rowsFit: number,
+  startCol: number,
   addTileAt?: GridCell | null,
 ): BoardPlan {
   const grid = createCellGrid(perRowCount, rowsFit)
   const cardCells = new Map<string, GridCell>()
   const siteCells = new Map<string, GridCell | null>()
+  const toLocal = (col: number, row: number): GridCell => ({ col: col - startCol, row })
 
   for (const item of items) {
     if (item.kind !== 'card') continue
-    const wanted = clampPlacement(item.card, perRowCount, rowsFit)
-    const at = placeBlock(grid, { col: wanted.col, row: wanted.row }, wanted.cols, wanted.rows) ?? {
-      col: wanted.col,
-      row: wanted.row,
-    }
-    occupy(grid, at.col, at.row, wanted.cols, wanted.rows)
-    cardCells.set(item.card.id, at)
+    const at = toLocal(item.card.col, item.card.row)
+    if (!fitsInWindow(at, item.card.cols, item.card.rows, perRowCount, rowsFit)) continue
+    const spot = placeBlock(grid, at, item.card.cols, item.card.rows) ?? at
+    occupy(grid, spot.col, spot.row, item.card.cols, item.card.rows)
+    cardCells.set(item.card.id, spot)
   }
 
   for (const item of items) {
     if (item.kind !== 'site') continue
-    const wanted = { col: item.col, row: item.row }
-    const at = inGrid(grid, wanted) && !grid[wanted.row][wanted.col] ? wanted : nearestFreeCell(grid, wanted)
+    const wanted = toLocal(item.col, item.row)
+    if (!fitsInWindow(wanted, 1, 1, perRowCount, rowsFit)) {
+      siteCells.set(item.site.id, null)
+      continue
+    }
+    const at = grid[wanted.row][wanted.col] ? nearestFreeCell(grid, wanted) : wanted
     siteCells.set(item.site.id, at)
     if (at) grid[at.row][at.col] = true
   }
 
-  const preferred = addTileAt ?? { col: 0, row: 0 }
+  const preferred = addTileAt ? toLocal(addTileAt.col, addTileAt.row) : { col: 0, row: 0 }
   const usable = inGrid(grid, preferred) && !grid[preferred.row][preferred.col]
-  return { siteCells, cardCells, addCell: usable ? preferred : nearestFreeCell(grid, preferred), grid }
+  const addCell = usable ? preferred : nearestFreeCell(grid, preferred)
+  return { siteCells, cardCells, addCell, grid }
 }
+
 
 /** 从占位图里取前 count 个空格（删除卡片时给它里面的快捷方式安排落点） */
 export function takeFreeCells(grid: CellGrid, count: number): GridCell[] {

@@ -1,6 +1,8 @@
 /**
  * 统一网格的拖拽接线：指针坐标 → 格子、落点判定（被占的图标实时弹开）、落定写回。
  * 让 ShortcutGrid/index.tsx 只负责渲染（AGENTS.md §3.2）。
+ * 坐标口径：内部一律用**窗口内的局部列号**（0 起，与 planBoard 一致），只在写回配置时 +startCol
+ * 换算成绝对列号（moveSites / addTileCell / 卡片落位 / 交回网格）。
  * 落点没有足够空位时整次拒绝：被拖动者保持上一个合法位置，不会出现图标凭空消失。
  */
 import { useEffect, useState } from 'react'
@@ -11,18 +13,10 @@ import { useBoardActions } from '../../store/useGroupActions'
 import { useCardActions } from '../../store/useCardActions'
 import type { CardLayout } from '../../store/useCardActions'
 import type { GridCell, GridSettings, ShortcutCard } from '../../types/config'
-import {
-  cardCellsOf,
-  clampPlacement,
-  placeBlock,
-  placementsOverlap,
-  takeFreeCells,
-  tryDrop,
-} from './boardLayout'
-import type { BoardPlan, CellGrid, PlacedBlock } from './boardLayout'
+import { cardCellsOf, clampPlacement, placeBlock, placementsOverlap, takeFreeCells, tryDrop } from './boardLayout'
+import type { BoardPlan, CardPlacement, CellGrid, PlacedBlock } from './boardLayout'
 import { useBoardDrag } from './useDragSort'
 import type { DragPayload } from './useDragSort'
-import { boardSideInset } from './useGridMetrics'
 import type { GridMetrics } from './useGridMetrics'
 
 /** "添加快捷方式"格子没有数据条目，用这个约定 id 参与拖拽（预览 / 弹开动画共用） */
@@ -38,25 +32,25 @@ export interface LiveCardPosition {
 export interface BoardDndResult {
   /** 拖拽状态与事件处理（透传给渲染层） */
   drag: ReturnType<typeof useBoardDrag>
-  /** 拖拽预览：条目 id → 临时格子（被拖动者 + 被弹开的图标） */
+  /** 拖拽预览：条目 id → 临时格子（窗口内局部格子；被拖动者 + 被弹开的图标） */
   preview: Record<string, GridCell>
-  /** 正在拖动的卡片的临时落位 */
+  /** 正在拖动的卡片的临时落位（窗口内局部格子） */
   liveCard: LiveCardPosition | null
-  /** 落点格子（辅助线高亮用） */
+  /** 落点格子（窗口内局部格子，辅助线高亮用） */
   highlight: GridCell[]
-  /** 卡片布局校验：越出区域 / 压到别的卡片时返回 false */
+  /** 卡片布局校验：越出窗口 / 压到别的卡片时返回 false */
   validateCardLayout: (selfId: string, next: CardLayout) => boolean
-  /** 给"新建卡片"找一块放得下的空位（null = 区域已满） */
+  /** 给"新建卡片"找一块放得下的空位（**绝对**格子；null = 窗口里没有空位） */
   findCardSlot: () => GridCell | null
-  /** 删除卡片时，给它里面的快捷方式安排网格落点 */
+  /** 删除卡片时，给它里面的快捷方式安排网格落点（**绝对**格子） */
   releaseCells: (cardId: string, count: number) => GridCell[]
 }
 
 /**
  * @param rootRef 网格容器引用（换算指针相对坐标用）
- * @param metrics 网格度量（每行格子数、可容纳行数、格子尺寸）
+ * @param metrics 网格度量（可见窗口列数、窗口最左列、可容纳行数、格子尺寸、内边距）
  * @param grid    宫格配置（间距）
- * @param plan    当前渲染方案（已提交的布局）
+ * @param plan    当前渲染方案（已提交的布局，窗口内局部格子）
  */
 export function useBoardDnd(
   rootRef: RefObject<HTMLDivElement | null>,
@@ -77,6 +71,9 @@ export function useBoardDnd(
   /** 单格步长（含间距） */
   const cellWidth = metrics.tileWidth + grid.columnGap
   const cellHeight = metrics.tileHeight + grid.rowGap
+
+  /** 窗口内局部格子 → 配置里的绝对格子（只在写回配置时用） */
+  const toAbsolute = (cell: GridCell): GridCell => ({ col: cell.col + metrics.startCol, row: cell.row })
 
   /** 网格上所有散落图标（1 格一个），可按 id 排除 */
   const looseBlocks = (exceptId?: string): PlacedBlock[] =>
@@ -108,14 +105,14 @@ export function useBoardDnd(
       )
     })
 
-  /** 卡片的渲染占位 */
-  const cardPlacementOf = (card: ShortcutCard) => ({
-    ...clampPlacement(card, metrics.perRowCount, metrics.rowsFit),
-    col: plan.cardCells.get(card.id)?.col ?? card.col,
-    row: plan.cardCells.get(card.id)?.row ?? card.row,
-  })
+  /** 卡片在窗口里的落位（null = 这张卡片不在窗口内，不参与碰撞判定） */
+  const cardPlacementOf = (card: ShortcutCard): CardPlacement | null => {
+    const at = plan.cardCells.get(card.id)
+    if (!at) return null
+    return { col: at.col, row: at.row, cols: card.cols, rows: card.rows }
+  }
 
-  /** 指针 → 落点格子（扣掉元素内的按下偏移与网格左右内缩） */
+  /** 指针 → 落点格子（窗口内局部列号；扣掉元素内的按下偏移与网格左内边距） */
   const cellFromPointer = (
     payload: DragPayload,
     clientX: number,
@@ -124,8 +121,7 @@ export function useBoardDnd(
     const container = rootRef.current
     if (!container) return { col: 0, row: 0 }
     const rect = container.getBoundingClientRect()
-    const inset = boardSideInset(metrics)
-    const left = clientX - rect.left - inset - payload.grabOffset.dx
+    const left = clientX - rect.left - metrics.gridPadding - payload.grabOffset.dx
     const top = clientY - rect.top - payload.grabOffset.dy
     return {
       col: Math.max(0, Math.round(left / cellWidth)),
@@ -160,9 +156,11 @@ export function useBoardDnd(
     )
     // 越界被夹取过 → 拒绝（否则卡片会悄悄贴边，而不是"顶住"）
     if (wanted.col !== cell.col || wanted.row !== cell.row) return
-    const clash = cards.some(
-      (other) => other.id !== card.id && placementsOverlap(wanted, cardPlacementOf(other)),
-    )
+    const clash = cards.some((other) => {
+      if (other.id === card.id) return false
+      const placement = cardPlacementOf(other)
+      return placement !== null && placementsOverlap(wanted, placement)
+    })
     if (clash) return
 
     const occ = cloneGrid()
@@ -191,11 +189,15 @@ export function useBoardDnd(
     setHighlight([cell])
   }
 
-  /** 把预览结果写回配置：散落图标的新格子 + 被挤开的"添加快捷方式"格子 */
+  /** 把预览结果写回配置：散落图标的新格子 + 被挤开的"添加快捷方式"格子（局部 → 绝对列号） */
   const commitPreview = () => {
     const { [ADD_TILE_ID]: addCell, ...siteMoves } = preview
-    if (Object.keys(siteMoves).length > 0) boardActions.moveSites(siteMoves)
-    if (addCell) patch('grid', { addTileCell: addCell })
+    if (Object.keys(siteMoves).length > 0) {
+      const moves: Record<string, GridCell> = {}
+      for (const [id, cell] of Object.entries(siteMoves)) moves[id] = toAbsolute(cell)
+      boardActions.moveSites(moves)
+    }
+    if (addCell) patch('grid', { addTileCell: toAbsolute(addCell) })
   }
 
   const drag = useBoardDrag({
@@ -214,8 +216,8 @@ export function useBoardDnd(
       if (payload.kind === 'site') {
         const cell = preview[payload.id]
         if (payload.origin.type === 'card') {
-          // 从卡片里拖到网格
-          if (cell) boardActions.moveSiteOutOfCard(payload.origin.cardId, payload.id, cell)
+          // 从卡片里拖到网格（局部格子换算成绝对列号再写回）
+          if (cell) boardActions.moveSiteOutOfCard(payload.origin.cardId, payload.id, toAbsolute(cell))
           commitPreview()
           return
         }
@@ -225,7 +227,7 @@ export function useBoardDnd(
       const card = cards.find((entry) => entry.id === payload.id)
       if (card && liveCard && liveCard.id === card.id) {
         cardActions.updateCardLayout(card.id, {
-          col: liveCard.col,
+          col: liveCard.col + metrics.startCol,
           row: liveCard.row,
           cols: card.cols,
           rows: card.rows,
@@ -255,7 +257,7 @@ export function useBoardDnd(
     if (highlight.length > 0) setHighlight([])
   }, [drag.dragging, preview, liveCard, highlight])
 
-  /** 卡片布局（拖动落位 / 缩放）是否可用 */
+  /** 卡片布局（拖动落位 / 缩放）是否可用（窗口内局部格子） */
   const validateCardLayout = (selfId: string, next: CardLayout): boolean => {
     const wanted = clampPlacement(next, metrics.perRowCount, metrics.rowsFit)
     if (
@@ -266,16 +268,20 @@ export function useBoardDnd(
     ) {
       return false
     }
-    return !cards.some(
-      (other) => other.id !== selfId && placementsOverlap(wanted, cardPlacementOf(other)),
-    )
+    return !cards.some((other) => {
+      if (other.id === selfId) return false
+      const placement = cardPlacementOf(other)
+      return placement !== null && placementsOverlap(wanted, placement)
+    })
   }
 
-  /** 新卡片放得下的空位 */
-  const findCardSlot = (): GridCell | null =>
-    placeBlock(plan.grid, { col: 0, row: 0 }, CARD_DEFAULT_COLS, CARD_DEFAULT_ROWS)
+  /** 新卡片放得下的空位（返回**绝对**格子，可直接交给 addCard） */
+  const findCardSlot = (): GridCell | null => {
+    const slot = placeBlock(plan.grid, { col: 0, row: 0 }, CARD_DEFAULT_COLS, CARD_DEFAULT_ROWS)
+    return slot ? toAbsolute(slot) : null
+  }
 
-  /** 删除卡片时给它的快捷方式腾出网格落点（把这张卡片占的格子当成空的来算） */
+  /** 删除卡片时给它的快捷方式腾出网格落点（返回**绝对**格子，可直接交给 removeCard） */
   const releaseCells = (cardId: string, count: number): GridCell[] => {
     const occ = cloneGrid()
     const at = plan.cardCells.get(cardId)
@@ -283,16 +289,8 @@ export function useBoardDnd(
     if (card && at) {
       for (const c of cardCellsOf(card, at)) occ[c.row][c.col] = false
     }
-    return takeFreeCells(occ, count)
+    return takeFreeCells(occ, count).map(toAbsolute)
   }
 
-  return {
-    drag,
-    preview,
-    liveCard,
-    highlight,
-    validateCardLayout,
-    findCardSlot,
-    releaseCells,
-  }
+  return { drag, preview, liveCard, highlight, validateCardLayout, findCardSlot, releaseCells }
 }

@@ -1,15 +1,14 @@
 /**
  * 卡片面板：浮在网格上的一个容器（不参与图标的排序）。
- * - 位置与尺寸都是**整格**：位置吸附到行列、尺寸按行列数换算像素，
- *   所以铺满的格子 = 卡片的大小，卡片内永远装得下整数个图标（不会露出半截）
+ * - 位置与尺寸都是**整格**：位置由布局方案（planBoard）给定（窗口内局部格子），
+ *   尺寸按行列数换算像素，所以铺满的格子 = 卡片的大小，卡片内永远装得下整数个图标
  * - 标题与关闭按钮是浮在卡片上的浮层（不额外占一格），悬停时出现
  * - 五个缩放手柄：右 / 左 / 下 / 右下 / 左下；左侧手柄固定右边缘
  */
 import { useRef } from 'react'
 import type { CSSProperties, DragEvent } from 'react'
-import type { GridSettings, ShortcutCard, SiteItem } from '../../types/config'
+import type { GridCell, GridSettings, ShortcutCard, SiteItem } from '../../types/config'
 import type { CardLayout } from '../../store/useCardActions'
-import { clampPlacement } from '../ShortcutGrid/boardLayout'
 import type { GridMetrics } from '../ShortcutGrid/useGridMetrics'
 import SiteBoard from '../ShortcutGrid/SiteBoard'
 import type { CardDropHandlers, DraggableHandlers } from '../ShortcutGrid/useDragSort'
@@ -33,6 +32,8 @@ const HANDLE_TITLES: Record<ResizeEdge, string> = {
 interface CardProps {
   /** 卡片数据 */
   card: ShortcutCard
+  /** 已提交的落位（**窗口内**的局部格子，由 planBoard 给出） */
+  at: GridCell
   /** 网格度量（格子宽高，与外面一致） */
   metrics: GridMetrics
   /** 宫格配置（间距 / 图标大小 / 交互开关 / 卡片不透明度） */
@@ -63,6 +64,7 @@ interface CardProps {
 
 export default function Card({
   card,
+  at,
   metrics,
   grid,
   editMode,
@@ -82,8 +84,10 @@ export default function Card({
 
   const cellWidth = metrics.tileWidth + grid.columnGap
   const cellHeight = metrics.tileHeight + grid.rowGap
+  /** 已提交的落位（窗口内局部格子） */
+  const base: CardLayout = { col: at.col, row: at.row, cols: card.cols, rows: card.rows }
   const resize = useCardResize({
-    layout: { col: card.col, row: card.row, cols: card.cols, rows: card.rows },
+    layout: base,
     cellWidth,
     cellHeight,
     validate: validateLayout,
@@ -91,15 +95,7 @@ export default function Card({
   })
 
   // 缩放中的临时占位优先；拖动中的临时位置覆盖左上角
-  const live: CardLayout = resize.live ?? {
-    col: card.col,
-    row: card.row,
-    cols: card.cols,
-    rows: card.rows,
-  }
-  const wanted: CardLayout = livePosition ? { ...live, ...livePosition } : live
-  // 夹取到区域内（区域变小后卡片仍留在可见区域，绝不创建隐式行列）
-  const at = clampPlacement(wanted, metrics.perRowCount, metrics.rowsFit)
+  const live: CardLayout = resize.live ?? (livePosition ? { ...base, ...livePosition } : base)
 
   const title = card.name.trim()
 
@@ -121,11 +117,11 @@ export default function Card({
     .join(' ')
 
   const style: StyleWithVars = {
-    gridColumn: `${at.col + 1} / span ${at.cols}`,
-    gridRow: `${at.row + 1} / span ${at.rows}`,
+    gridColumn: `${live.col + 1} / span ${live.cols}`,
+    gridRow: `${live.row + 1} / span ${live.rows}`,
     // 尺寸 = 占格数换算出来的像素（与网格完全对齐，一格不多不少）
-    width: at.cols * cellWidth - grid.columnGap,
-    height: at.rows * cellHeight - grid.rowGap,
+    width: live.cols * cellWidth - grid.columnGap,
+    height: live.rows * cellHeight - grid.rowGap,
     alignSelf: 'start',
     justifySelf: 'start',
     // 卡片底衬不透明度（0-100 → 0-1），图标与文字不受影响
@@ -160,7 +156,7 @@ export default function Card({
         <SiteBoard
           cardId={card.id}
           sites={card.sites}
-          columns={at.cols}
+          columns={live.cols}
           metrics={metrics}
           grid={grid}
           editMode={editMode}

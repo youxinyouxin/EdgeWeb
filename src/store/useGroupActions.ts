@@ -89,7 +89,7 @@ export function useBoardActions(): BoardActions {
     }
     updateBoard((items) => [
       ...items,
-      { kind: 'site', site, col: Math.max(0, at.col), row: Math.max(0, at.row) },
+      { kind: 'site', site, col: Math.round(at.col), row: Math.max(0, Math.round(at.row)) },
     ])
   }
 
@@ -138,7 +138,7 @@ export function useBoardActions(): BoardActions {
       items.map((item) => {
         if (item.kind !== 'site') return item
         const cell = moves[item.site.id]
-        return cell ? { ...item, col: Math.max(0, cell.col), row: Math.max(0, cell.row) } : item
+        return cell ? { ...item, col: Math.round(cell.col), row: Math.max(0, Math.round(cell.row)) } : item
       }),
     )
   }
@@ -185,7 +185,10 @@ export function useBoardActions(): BoardActions {
         ...card,
         sites: card.sites.filter((entry) => entry.id !== siteId),
       }))
-      return [...without, { kind: 'site', site, col: Math.max(0, at.col), row: Math.max(0, at.row) }]
+      return [
+        ...without,
+        { kind: 'site', site, col: Math.round(at.col), row: Math.max(0, Math.round(at.row)) },
+      ]
     })
   }
 

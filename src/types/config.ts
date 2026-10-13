@@ -17,7 +17,7 @@ export interface SiteItem {
   icon?: string
 }
 
-/** 网格格子坐标（0 起，单位是"一个图标格"） */
+/** 网格格子坐标（单位是"一个图标格"）。列号**可以为负**：网格以中轴为界向两侧对称延伸，负数 = 中轴左侧 */
 export interface GridCell {
   col: number
   row: number
@@ -34,7 +34,7 @@ export interface ShortcutCard {
   name: string
   /** 卡片内的快捷方式（有序，按顺序自动排布） */
   sites: SiteItem[]
-  /** 占位左上角所在列（0 起） */
+  /** 占位左上角所在列（中轴左侧为负） */
   col: number
   /** 占位左上角所在行（0 起） */
   row: number
@@ -55,10 +55,10 @@ export type BoardItem =
 
 /** 宫格布局与交互设置 */
 export interface GridSettings {
-  /** 每行个数模式：auto = 按图标大小自适应；fixed = 使用 perRow */
+  /** 每行个数模式：auto = 铺满容器宽度；fixed = 按 perRowPercent 的宽度占比排格子 */
   perRowMode: 'auto' | 'fixed'
-  /** 每行个数（fixed 模式下生效，5-15） */
-  perRow: number
+  /** 手动指定模式下的"宽度占比"（%，20-100）：占容器宽度的比例，越小每行列数越少 */
+  perRowPercent: number
   /** 图标大小（px，40-96） */
   iconSize: number
   /** 行间距（px） */
@@ -76,6 +76,13 @@ export interface GridSettings {
    * null = 自动放在第一个空格；被图标或卡片占住时会临时让到最近的空位。
    */
   addTileCell: GridCell | null
+  /**
+   * 中轴所在列（第 axisCol 列左侧的列边界恒对准页面竖直中轴线）。
+   * 可见窗口 = 容器当次能放下的偶数段列数，以中轴为中心向两侧各取一半（列号可以为负）；
+   * 因此**列 → 像素的映射与窗口宽度无关**：窗口怎么变，已摆好的构图一个像素都不动。
+   * 老配置首次打开时由 storage.ts 的 alignAxis 按现有构图推算一次并落盘冻结（之后不再变）。
+   */
+  axisCol: number
 }
 
 /** 搜索相关设置 */

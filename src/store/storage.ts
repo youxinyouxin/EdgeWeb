@@ -1,28 +1,21 @@
 /**
- * 持久化层：localStorage 的读写、默认值合并与旧配置迁移。
- * 约定（AGENTS.md §3.9）：
- * - 配置 key 带版本号（v1），结构升级时在 loadConfig 里做迁移
- * - 读取一律"出厂默认 ⊕ 本地存储"深合并，本地值优先；数组整体替换
- * - 所有写入 try/catch：隐私模式 / 配额满时不至于让页面崩溃
+ * 持久化层：localStorage 的读写、默认值合并与旧配置迁移（AGENTS.md §3.9）。
+ * 约定：读取一律"出厂默认 ⊕ 本地存储"深合并（本地优先、数组整体替换）；
+ * 所有写入 try/catch，隐私模式 / 配额满时不至于让页面崩溃。
  */
 import { CARD_DEFAULT_COLS, CARD_DEFAULT_ROWS, defaultConfig } from '../config/defaultConfig'
+import { deriveAxisCol } from '../components/ShortcutGrid/boardLayout'
 import { makeId } from '../utils/id'
 import type { AppConfig, BoardItem, ShortcutCard, SiteItem } from '../types/config'
 
-/** 配置存储 key（带版本号，便于未来迁移） */
+/** 配置 / 搜索历史的存储 key（带版本号，便于未来迁移）与历史上限 */
 export const CONFIG_KEY = 'edgehtml.config.v1'
-
-/** 搜索历史存储 key */
 export const HISTORY_KEY = 'edgehtml.history.v1'
-
-/** 搜索历史上限（条） */
 export const HISTORY_LIMIT = 100
 
-/** 旧卡片像素尺寸折算成格子数时的单格估算值（px），仅迁移时使用 */
+/** 旧卡片像素尺寸折算成格子数时的单格估算值（px）；旧散落站点缺坐标时的名义每行个数 */
 const LEGACY_CELL_WIDTH = 180
 const LEGACY_CELL_HEIGHT = 130
-
-/** 旧配置里散落站点没有坐标时，按行顺序补位的名义每行个数 */
 const LEGACY_PER_ROW = 10
 
 /** 判断是否为可递归合并的普通对象（排除数组、null、原始值） */
@@ -60,11 +53,8 @@ function readSites(value: unknown): SiteItem[] {
 }
 
 /**
- * 读取卡片：统一补全 id / 标题 / 位置 / 占格数。
- * 位置与尺寸都归一成"格子数"，兼容三代写法：
- * - `col` / `row` / `cols` / `rows`（格子，当前版本）
- * - `width` / `height`（阶段 3 早期的像素尺寸，按估算单格折算）
- * - `spanCols` / `spanRows`（更早的"占格数"写法，直接就是格子数）
+ * 读取卡片：统一补全 id / 标题 / 位置 / 占格数，兼容三代写法：
+ * `col`/`row`/`cols`/`rows`（格子，当前）、`width`/`height`（早期像素尺寸）、`spanCols`/`spanRows`（占格数）。
  */
 function readCard(value: unknown, fallbackIndex = 0): ShortcutCard {
   const source = isPlainObject(value) ? value : {}
@@ -77,17 +67,19 @@ function readCard(value: unknown, fallbackIndex = 0): ShortcutCard {
     id: typeof source.id === 'string' && source.id !== '' ? source.id : makeId('card'),
     name: typeof source.name === 'string' ? source.name : '',
     sites: readSites(source.sites),
-    col: readCell(source.col, (fallbackIndex % 2) * CARD_DEFAULT_COLS),
-    row: readCell(source.row, Math.floor(fallbackIndex / 2) * CARD_DEFAULT_ROWS),
+    col: readGrid(source.col, (fallbackIndex % 2) * CARD_DEFAULT_COLS, true),
+    row: readGrid(source.row, Math.floor(fallbackIndex / 2) * CARD_DEFAULT_ROWS),
     cols: readSpan(source.cols, legacyCols > 0 ? legacyCols : pixelCols, CARD_DEFAULT_COLS),
     rows: readSpan(source.rows, legacyRows > 0 ? legacyRows : pixelRows, CARD_DEFAULT_ROWS),
   }
 }
 
-/** 读取格子坐标（非负整数），非法时用回退值 */
-function readCell(value: unknown, fallback: number): number {
+/** 读取格子坐标（整数，非法时用回退值）；signed = 列号（允许为负，中轴左侧），否则行号（夹到 ≥ 0） */
+function readGrid(value: unknown, fallback: number, signed = false): number {
   const raw = readNumber(value, Number.NaN)
-  return Number.isFinite(raw) ? Math.max(0, Math.round(raw)) : fallback
+  if (!Number.isFinite(raw)) return fallback
+  const rounded = Math.round(raw)
+  return signed ? rounded : Math.max(0, rounded)
 }
 
 /** 读取占格数（≥1 的整数），非法时用回退值 */
@@ -98,10 +90,9 @@ function readSpan(value: unknown, legacy: number, fallback: number): number {
 }
 
 /**
- * 旧配置迁移（阶段 2 / 阶段 3 早期 → 统一网格）：
- * 那时配置是 `groups`（+ 记录卡片像素坐标的 `canvas`），现在统一为 `board`。
- * 规则：主分组（canvas.mainGroupId / 旧 activeGroupId / 第一个分组）内的站点展开为
- * 散落条目；其余分组转成卡片（沿用旧像素尺寸，按估算单格折算成占格数）。
+ * 旧配置迁移（阶段 2 / 3 早期 → 统一网格）：那时配置是 `groups`（+ 记录卡片像素坐标的 `canvas`）。
+ * 规则：主分组（canvas.mainGroupId / 旧 activeGroupId / 第一个分组）内的站点展开为散落条目，
+ * 其余分组转成卡片（沿用旧像素尺寸，按估算单格折算成占格数）。
  */
 function migrateLegacy(parsed: unknown): unknown {
   if (!isPlainObject(parsed) || 'board' in parsed) return parsed
@@ -146,11 +137,8 @@ function migrateLegacy(parsed: unknown): unknown {
 }
 
 /**
- * 规范化配置：把 board 清洗成合法结构（丢弃脏条目、补全卡片占格数与散落站点坐标）。
- * 每次读取都跑一遍，保证后续组件拿到的一定是可用数据。
- * 说明：旧配置里散落站点没有格子坐标，这里按行顺序给一个"名义坐标"；
- * 首屏由布局引擎（planBoard）把这些被卡片占住的格子依次挪到最近的空位，
- * 效果与旧的自动排布完全一致（图标排在卡片之后、逐行补齐）。
+ * 规范化配置：把 board 清洗成合法结构（丢弃脏条目、补全卡片占格数与散落站点坐标），每次读取都跑一遍。
+ * 旧配置里散落站点没有格子坐标，这里按行顺序给"名义坐标"，首屏再由布局引擎挪到最近的空位。
  */
 function normalizeConfig(config: AppConfig): AppConfig {
   const board: BoardItem[] = []
@@ -168,8 +156,8 @@ function normalizeConfig(config: AppConfig): AppConfig {
       board.push({
         kind: 'site',
         site,
-        col: hasPosition ? readCell(item.col, 0) : siteIndex % LEGACY_PER_ROW,
-        row: hasPosition ? readCell(item.row, 0) : Math.floor(siteIndex / LEGACY_PER_ROW),
+        col: hasPosition ? readGrid(item.col, 0, true) : siteIndex % LEGACY_PER_ROW,
+        row: hasPosition ? readGrid(item.row, 0) : Math.floor(siteIndex / LEGACY_PER_ROW),
       })
       if (!hasPosition) siteIndex += 1
     }
@@ -178,11 +166,8 @@ function normalizeConfig(config: AppConfig): AppConfig {
 }
 
 /**
- * 深合并：把存储中的用户配置覆盖到出厂默认上。
- * 规则：
- * - 普通对象递归合并
- * - 数组及其他类型整体替换（数组代表用户的完整数据，如 board）
- * - 只接受默认配置里已有的键，忽略存储中的陌生键（防御历史脏数据）
+ * 深合并：把存储中的用户配置覆盖到出厂默认上。普通对象递归合并；数组整体替换（如 board）；
+ * 只接受默认配置里已有的键，忽略存储中的陌生键（防御历史脏数据）。
  */
 export function deepMerge<T>(base: T, patch: unknown): T {
   if (!isPlainObject(base) || !isPlainObject(patch)) {
@@ -201,15 +186,28 @@ export function deepMerge<T>(base: T, patch: unknown): T {
 }
 
 /**
- * 读取配置：出厂默认 ⊕ 本地存储（本地优先）。
- * 存储为空 / JSON 解析失败时直接返回出厂默认。
+ * 老配置没有 `grid.axisCol` 时，按现有构图把"固定网格"摆到页面正中。
+ * 返回新对象（调用方需要落盘）；配置里已有 axisCol 时原样返回。
+ */
+function alignAxis(config: AppConfig, parsed: unknown): AppConfig {
+  const stored = isPlainObject(parsed) && isPlainObject(parsed.grid) ? parsed.grid.axisCol : undefined
+  if (typeof stored === 'number') return config
+  return { ...config, grid: { ...config.grid, axisCol: deriveAxisCol(config.board) } }
+}
+
+/**
+ * 读取配置：出厂默认 ⊕ 本地存储（本地优先）。存储为空 / JSON 解析失败时回退出厂默认。
  */
 export function loadConfig(): AppConfig {
   try {
     const raw = localStorage.getItem(CONFIG_KEY)
     if (!raw) return normalizeConfig(defaultConfig)
     const parsed: unknown = JSON.parse(raw)
-    return normalizeConfig(deepMerge(defaultConfig, migrateLegacy(parsed)))
+    const merged = normalizeConfig(deepMerge(defaultConfig, migrateLegacy(parsed)))
+    const config = alignAxis(merged, parsed)
+    // 首次对齐中轴后落盘冻结：否则每次打开都按当时的构图重算，构图会在两次打开之间漂移
+    if (config !== merged) saveConfig(config)
+    return config
   } catch (error) {
     console.warn('[edgehtml] 读取本地配置失败，已回退出厂默认：', error)
     return normalizeConfig(defaultConfig)
@@ -284,8 +282,8 @@ export function downloadConfig(config: AppConfig): void {
 export function importConfigFromText(text: string): void {
   const parsed: unknown = JSON.parse(text)
   if (!isPlainObject(parsed)) throw new Error('配置文件格式不正确：应为 JSON 对象')
-  const merged = deepMerge(defaultConfig, migrateLegacy(parsed))
-  saveConfig(normalizeConfig(merged))
+  const merged = normalizeConfig(deepMerge(defaultConfig, migrateLegacy(parsed)))
+  saveConfig(alignAxis(merged, parsed))
   window.location.reload()
 }
 

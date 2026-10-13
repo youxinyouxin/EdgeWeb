@@ -58,7 +58,7 @@ export function useCardActions(): CardActions {
         id: makeId('card'),
         name: '',
         sites: [],
-        col: at ? Math.max(0, Math.round(at.col)) : 0,
+        col: at ? Math.round(at.col) : 0,
         row: at ? Math.max(0, Math.round(at.row)) : below,
         cols: CARD_DEFAULT_COLS,
         rows: CARD_DEFAULT_ROWS,
@@ -92,7 +92,7 @@ export function useCardActions(): CardActions {
   const updateCardLayout = (cardId: string, layout: CardLayout) => {
     mapCard(cardId, (card) => ({
       ...card,
-      col: Math.max(0, Math.round(layout.col)),
+      col: Math.round(layout.col),
       row: Math.max(0, Math.round(layout.row)),
       cols: Math.max(1, Math.round(layout.cols)),
       rows: Math.max(1, Math.round(layout.rows)),

@@ -20,7 +20,8 @@ export const defaultConfig: AppConfig = {
   },
   grid: {
     perRowMode: 'auto',
-    perRow: 10,
+    // 手动指定模式下的网格宽度占比（%）：100 = 尽量铺满容器
+    perRowPercent: 100,
     iconSize: 56,
     rowGap: 28,
     columnGap: 28,
@@ -30,6 +31,9 @@ export const defaultConfig: AppConfig = {
     cardOpacity: 34,
     // "添加快捷方式"格子：null = 自动放在第一个空格（用户拖动后会记住位置）
     addTileCell: null,
+    // 中轴所在列（中轴恒对准页面竖直中轴线；网格以它为界、按容器宽度向两侧对称延伸）。
+    // 因此下面的初始构图放在 3-6 列，正好关于中轴 5 对称 = 出厂状态就是居中的
+    axisCol: 5,
   },
   wallpaper: {
     // 默认使用必应每日壁纸；离线或接口失败时自动回退到内置渐变底
@@ -62,12 +66,13 @@ export const defaultConfig: AppConfig = {
     theme: 'auto',
     entranceAnimation: true,
   },
-  // 统一网格初始内容：4 个散落快捷方式（自由定位，初始占第一行；用户可自由拖动、拖进卡片）
+  // 统一网格初始内容：4 个散落快捷方式，落在中轴两侧对称的位置（列 3-6 的中心正好是中轴 5），
+  // 因此出厂状态下构图就是居中的；用户可自由拖动、拖进卡片
   board: [
-    { kind: 'site', site: { id: 's-bilibili', name: 'bilibili', url: 'https://www.bilibili.com' }, col: 0, row: 0 },
-    { kind: 'site', site: { id: 's-csdn', name: 'CSDN', url: 'https://www.csdn.net' }, col: 1, row: 0 },
-    { kind: 'site', site: { id: 's-yuque', name: '语雀', url: 'https://www.yuque.com' }, col: 2, row: 0 },
-    { kind: 'site', site: { id: 's-github', name: 'GitHub', url: 'https://github.com' }, col: 3, row: 0 },
+    { kind: 'site', site: { id: 's-bilibili', name: 'bilibili', url: 'https://www.bilibili.com' }, col: 3, row: 0 },
+    { kind: 'site', site: { id: 's-csdn', name: 'CSDN', url: 'https://www.csdn.net' }, col: 4, row: 0 },
+    { kind: 'site', site: { id: 's-yuque', name: '语雀', url: 'https://www.yuque.com' }, col: 5, row: 0 },
+    { kind: 'site', site: { id: 's-github', name: 'GitHub', url: 'https://github.com' }, col: 6, row: 0 },
   ],
   content: {
     stickyNoteText: '',
