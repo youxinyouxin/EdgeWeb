@@ -6,7 +6,7 @@
  */
 import { useConfig } from './ConfigContext'
 import { makeId } from '../utils/id'
-import type { AppConfig, BoardItem, GridCell, ShortcutCard, SiteItem } from '../types/config'
+import type { AppConfig, BoardCard, BoardItem, GridCell, SiteItem } from '../types/config'
 
 /** 新建 / 编辑站点表单提交的字段 */
 export interface SiteDraft {
@@ -20,7 +20,7 @@ export interface SiteDraft {
 function mapCard(
   board: BoardItem[],
   cardId: string,
-  transform: (card: ShortcutCard) => ShortcutCard,
+  transform: (card: BoardCard) => BoardCard,
 ): BoardItem[] {
   return board.map((item) =>
     item.kind === 'card' && item.card.id === cardId

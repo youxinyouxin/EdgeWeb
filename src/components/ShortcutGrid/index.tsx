@@ -4,7 +4,9 @@
  * - 拖快捷方式 / "＋" / 卡片：吸附到格子，占位条目实时"弹开"（FLIP）；放不下就整次拒绝；拖动时显示辅助线
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import Card from '../CardCanvas'
+import AddCardButton from './AddCardButton'
 import { useConfig } from '../../store/ConfigContext'
 import { useBoardActions } from '../../store/useGroupActions'
 import type { SiteDraft } from '../../store/useGroupActions'
@@ -19,6 +21,9 @@ import { useReflowAnimation } from './useDragSort'
 import { ADD_TILE_ID, useBoardDnd } from './useBoardDnd'
 import { useGridMetrics } from './useGridMetrics'
 import styles from './ShortcutGrid.module.css'
+
+/** 允许把 CSS 自定义属性写进 style（React 的 CSSProperties 未覆盖该用法，无需强转） */
+type StyleWithVars = CSSProperties & Record<`--${string}`, string | number>
 
 /** 表单弹窗状态：新增 / 编辑某个散落快捷方式 / 关闭 */
 type DialogState = { mode: 'add' } | { mode: 'edit'; site: SiteItem } | null
@@ -60,7 +65,7 @@ export default function ShortcutGrid({ editMode }: ShortcutGridProps) {
     return cells
   }, [dnd.highlight, metrics.perRowCount, metrics.rowsFit])
 
-  // 点击"…"按钮与菜单以外的任何位置：关闭菜单
+  // 点击类型菜单以外的任何位置：关闭"新建卡片"菜单
   useEffect(() => {
     if (!menuSiteId) return
     const onMouseDown = (event: MouseEvent) => {
@@ -108,16 +113,6 @@ export default function ShortcutGrid({ editMode }: ShortcutGridProps) {
     cardActions.removeCard(cardId, card ? dnd.releaseCells(cardId, card.sites.length) : undefined)
   }
 
-  /** 新建卡片：优先落在不与现有卡片重叠的空位；区域放不下就提示（不允许卡片叠放） */
-  const handleAddCard = () => {
-    const slot = dnd.findCardSlot()
-    if (!slot) {
-      window.alert('网格里已经没有放新卡片的空位了：可以先删掉或缩小现有卡片，或调小图标与间距。')
-      return
-    }
-    cardActions.addCard(slot)
-  }
-
   /** 某张卡片内正在被拖动的站点 id */
   const draggingSiteIdIn = (cardId: string): string | null => {
     const current = dnd.drag.dragging
@@ -127,13 +122,14 @@ export default function ShortcutGrid({ editMode }: ShortcutGridProps) {
 
   /** 网格的格子定义（网格本体与辅助线共用，保证两条线严格重合）：
       列数 = 可见窗口列数；左右内边距把窗口精确摆到以中轴居中 */
-  const gridStyle = {
+  const gridStyle: StyleWithVars = {
     gridTemplateColumns: `repeat(${metrics.perRowCount}, ${metrics.tileWidth}px)`,
     gridAutoRows: `${metrics.tileHeight}px`,
-    columnGap: config.grid.columnGap,
-    rowGap: config.grid.rowGap,
+    gap: config.grid.gap,
     paddingLeft: metrics.gridPadding,
     paddingRight: metrics.gridPadding,
+    // 卡片质感（0 = 液体玻璃，100 = 朦胧）：卡片样式里的 calc() 依赖这个变量
+    '--card-glass': config.grid.cardGlass,
   }
   // "添加快捷方式"格子的落位：拖拽预览优先，其次是它记住的位置 / 第一个空格
   const addCell = dnd.preview[ADD_TILE_ID] ?? plan.addCell
@@ -142,7 +138,7 @@ export default function ShortcutGrid({ editMode }: ShortcutGridProps) {
     <div className={styles.wrap}>
       <div
         ref={rootRef}
-        className={`${styles.board} ${config.grid.hoverZoom ? styles.gridZoom : ''}`}
+        className={`${styles.board} ${styles.gridZoom}`}
         style={gridStyle}
         {...dnd.drag.boardHandlers}
       >
@@ -279,10 +275,7 @@ export default function ShortcutGrid({ editMode }: ShortcutGridProps) {
         )}
       </div>
 
-      <button className={styles.addCard} onClick={handleAddCard}>
-        <PlusIcon size={15} />
-        新建卡片
-      </button>
+      <AddCardButton findSlot={dnd.findCardSlot} onCreate={cardActions.addCard} />
 
       {dialog && (
         <SiteFormDialog

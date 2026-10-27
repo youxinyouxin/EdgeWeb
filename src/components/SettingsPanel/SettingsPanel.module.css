@@ -147,3 +147,11 @@
 .settingLabelText {
   font-size: 14px;
 }
+
+/* 卡片类型按钮组（设置面板里的"新建卡片"）：自动换行，每个按钮一个类型 */
+.typeGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0 2px;
+}

@@ -1,23 +1,28 @@
 /* 卡片面板样式：浮在网格上的容器（整格定位 + 整格缩放 + 浮层标题 + 五个缩放手柄） */
 
+/* 卡片质感：--card-glass（0-100，由网格注入）一条滑条同时驱动背景浓度与模糊强弱。
+   0 = 液体玻璃（很透明 + 强模糊 + 亮高光描边 + 高饱和），100 = 朦胧（厚实不透明 + 柔和模糊）。 */
 .card {
   position: relative;
   display: flex;
   flex-direction: column;
   border-radius: 16px;
-  /* 不透明度由设置面板控制（--card-alpha，0-1），只影响底衬，不影响卡片内的图标 */
-  background: rgba(28, 30, 36, var(--card-alpha, 0.34));
+  background: rgba(20, 22, 28, calc(0.1 + var(--card-glass, 34) * 0.0068));
   /* 边框用 inset 描边：不占布局尺寸，卡片宽度才能"正好等于整数个格子" */
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(255, 255, 255, 0.22);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, calc(0.42 - var(--card-glass, 34) * 0.0022));
+  backdrop-filter: blur(calc(16px + var(--card-glass, 34) * 0.14px))
+    saturate(calc(170% - var(--card-glass, 34) * 0.5%));
+  -webkit-backdrop-filter: blur(calc(16px + var(--card-glass, 34) * 0.14px))
+    saturate(calc(170% - var(--card-glass, 34) * 0.5%));
   cursor: move;
   /* 缩放时尺寸按整格跳变，靠这条过渡补成"吸附 + 缓动"的手感 */
   transition: width 0.12s ease, height 0.12s ease, box-shadow 0.16s ease;
 }
 
 .card:hover {
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.34), inset 0 0 0 1px rgba(255, 255, 255, 0.38);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.34),
+    inset 0 0 0 1px rgba(255, 255, 255, calc(0.58 - var(--card-glass, 34) * 0.0022));
 }
 
 /* 卡片自身被拖动中 */
@@ -81,7 +86,7 @@
   background: rgba(255, 255, 255, 0.32);
 }
 
-/* —— 内容区：内嵌宫格；图标比格子多时卡片内滚动（细滚动条） —— */
+/* —— 内容区：文件夹卡片内嵌宫格；图标比格子多时卡片内滚动（细滚动条） —— */
 .cardBody {
   flex: 1;
   min-height: 0;
@@ -89,6 +94,21 @@
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.32) transparent;
+}
+
+/* —— 内容区：组件卡（时钟 / 便签 / 倒计时 / 自定义 HTML / 照片）—— */
+.widgetBody {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 8px 12px 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.widgetBody > * {
+  flex: 1;
+  min-height: 0;
 }
 
 /* —— 整格缩放手柄（右 / 左 / 下 / 右下 / 左下） —— */
@@ -135,4 +155,60 @@
   width: 14px;
   height: 14px;
   cursor: nesw-resize;
+}
+
+/* —— "新建卡片"类型菜单（浮在按钮上方；定位祖先由调用方提供） —— */
+.typeMenu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  min-width: 196px;
+  padding: 6px;
+  border-radius: var(--radius-md);
+  background: var(--color-panel-bg);
+  color: var(--color-panel-text);
+  border: 1px solid var(--color-panel-border);
+  box-shadow: var(--shadow-panel);
+  display: flex;
+  flex-direction: column;
+}
+
+.typeMenuTitle {
+  padding: 4px 10px 6px;
+  font-size: 11px;
+  color: var(--color-panel-sub);
+}
+
+.typeMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: var(--color-panel-text);
+  font-size: 13px;
+  text-align: left;
+  transition: background-color 0.12s ease;
+}
+
+.typeMenuItem:hover {
+  background: var(--color-panel-hover);
+}
+
+.typeMenuIcon {
+  display: flex;
+  align-items: center;
+  color: var(--color-panel-sub);
+}
+
+.typeMenuLabel {
+  flex: 1;
+}
+
+.typeMenuSize {
+  font-size: 11px;
+  color: var(--color-panel-sub);
+  font-variant-numeric: tabular-nums;
 }

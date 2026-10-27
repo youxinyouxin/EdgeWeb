@@ -2,23 +2,24 @@
  * 卡片面板：浮在网格上的一个容器（不参与图标的排序）。
  * - 位置与尺寸都是**整格**：位置由布局方案（planBoard）给定（窗口内局部格子），
  *   尺寸按行列数换算像素，所以铺满的格子 = 卡片的大小，卡片内永远装得下整数个图标
+ * - 按 `type` 分发内容：文件夹卡片内嵌快捷方式宫格，组件卡渲染时钟 / 便签 / 倒计时 / 自定义 HTML / 照片
  * - 标题与关闭按钮是浮在卡片上的浮层（不额外占一格），悬停时出现
  * - 五个缩放手柄：右 / 左 / 下 / 右下 / 左下；左侧手柄固定右边缘
+ * - 质感（玻璃 ↔ 朦胧）由网格上的 `--card-glass` 变量统一驱动（见 CardCanvas.module.css）
  */
 import { useRef } from 'react'
 import type { CSSProperties, DragEvent } from 'react'
-import type { GridCell, GridSettings, ShortcutCard, SiteItem } from '../../types/config'
+import type { BoardCard, GridCell, GridSettings, SiteItem } from '../../types/config'
 import type { CardLayout } from '../../store/useCardActions'
+import { useCardActions } from '../../store/useCardActions'
 import type { GridMetrics } from '../ShortcutGrid/useGridMetrics'
 import SiteBoard from '../ShortcutGrid/SiteBoard'
 import type { CardDropHandlers, DraggableHandlers } from '../ShortcutGrid/useDragSort'
+import WidgetBody from '../widgets/WidgetBody'
 import { CloseIcon } from '../icons'
 import { RESIZE_EDGES, useCardResize } from './useCardGridMetrics'
 import type { ResizeEdge } from './useCardGridMetrics'
 import styles from './CardCanvas.module.css'
-
-/** 允许把 CSS 自定义属性写进 style（React 的 CSSProperties 未覆盖该用法，无需强转） */
-type StyleWithVars = CSSProperties & Record<`--${string}`, string | number>
 
 /** 各手柄的鼠标指针提示 */
 const HANDLE_TITLES: Record<ResizeEdge, string> = {
@@ -29,9 +30,12 @@ const HANDLE_TITLES: Record<ResizeEdge, string> = {
   sw: '拖动调整大小（按整格）',
 }
 
+/** 卡片的可交互元素（按钮 / 输入框 / 可选中文本区）：在它们上面按下时不触发整卡拖动 */
+const INTERACTIVE_SELECTOR = 'button, input, textarea, select, a, [data-no-drag]'
+
 interface CardProps {
   /** 卡片数据 */
-  card: ShortcutCard
+  card: BoardCard
   /** 已提交的落位（**窗口内**的局部格子，由 planBoard 给出） */
   at: GridCell
   /** 网格度量（格子宽高，与外面一致） */
@@ -81,9 +85,10 @@ export default function Card({
 }: CardProps) {
   // 拖手柄时置位，用来取消 HTML5 拖动（避免"缩放"被当成"拖卡片"）
   const resizingRef = useRef(false)
+  const { updateCard } = useCardActions()
 
-  const cellWidth = metrics.tileWidth + grid.columnGap
-  const cellHeight = metrics.tileHeight + grid.rowGap
+  const cellWidth = metrics.tileWidth + grid.gap
+  const cellHeight = metrics.tileHeight + grid.gap
   /** 已提交的落位（窗口内局部格子） */
   const base: CardLayout = { col: at.col, row: at.row, cols: card.cols, rows: card.rows }
   const resize = useCardResize({
@@ -99,9 +104,10 @@ export default function Card({
 
   const title = card.name.trim()
 
-  /** 拖动开始前若正在拖缩放手柄，则取消这次拖动 */
+  /** 拖动开始前：正在拖缩放手柄、或按在卡片内的可交互元素上时，取消这次整卡拖动 */
   const handleDragStart = (event: DragEvent<HTMLDivElement>) => {
-    if (resizingRef.current) {
+    const target = event.target as HTMLElement
+    if (resizingRef.current || target.closest(INTERACTIVE_SELECTOR)) {
       event.preventDefault()
       return
     }
@@ -116,16 +122,14 @@ export default function Card({
     .filter((name) => name !== '')
     .join(' ')
 
-  const style: StyleWithVars = {
+  const style: CSSProperties = {
     gridColumn: `${live.col + 1} / span ${live.cols}`,
     gridRow: `${live.row + 1} / span ${live.rows}`,
     // 尺寸 = 占格数换算出来的像素（与网格完全对齐，一格不多不少）
-    width: live.cols * cellWidth - grid.columnGap,
-    height: live.rows * cellHeight - grid.rowGap,
+    width: live.cols * cellWidth - grid.gap,
+    height: live.rows * cellHeight - grid.gap,
     alignSelf: 'start',
     justifySelf: 'start',
-    // 卡片底衬不透明度（0-100 → 0-1），图标与文字不受影响
-    '--card-alpha': grid.cardOpacity / 100,
   }
 
   return (
@@ -152,18 +156,24 @@ export default function Card({
         </button>
       </div>
 
-      <div className={styles.cardBody}>
-        <SiteBoard
-          cardId={card.id}
-          sites={card.sites}
-          columns={live.cols}
-          metrics={metrics}
-          grid={grid}
-          editMode={editMode}
-          draggingSiteId={draggingSiteId}
-          dragHandlersFor={siteDragHandlersFor}
-        />
-      </div>
+      {card.type === 'folder' ? (
+        <div className={styles.cardBody}>
+          <SiteBoard
+            cardId={card.id}
+            sites={card.sites}
+            columns={live.cols}
+            metrics={metrics}
+            grid={grid}
+            editMode={editMode}
+            draggingSiteId={draggingSiteId}
+            dragHandlersFor={siteDragHandlersFor}
+          />
+        </div>
+      ) : (
+        <div className={styles.widgetBody}>
+          <WidgetBody card={card} onPatch={(partial) => updateCard(card.id, partial)} />
+        </div>
+      )}
 
       {RESIZE_EDGES.map((edge: ResizeEdge) => (
         <span

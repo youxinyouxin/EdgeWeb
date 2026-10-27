@@ -1,26 +1,28 @@
 /**
  * 卡片操作 hook：卡片的增删改、位置与占格数更新。
  * 卡片位置与尺寸都用格子表示（col / row / cols / rows），所以调整图标大小与间距时不会跳格。
- * 卡片内快捷方式的增删改排序请用 useBoardActions（两者都作用于同一份 board）。
+ * 卡片按 `type` 分成"文件夹卡片"（装快捷方式）与"组件卡"（时钟 / 便签 / 倒计时 / 自定义 HTML / 照片）；
+ * 组件卡的内容更新用 updateCard，文件夹内的快捷方式增删改排序请用 useBoardActions。
  */
 import { useConfig } from './ConfigContext'
-import { CARD_DEFAULT_COLS, CARD_DEFAULT_ROWS } from '../config/defaultConfig'
+import { cardTypeMeta, PHOTO_INTERVAL_DEFAULT } from '../config/defaultConfig'
 import { makeId } from '../utils/id'
-import type { BoardItem, GridCell, ShortcutCard } from '../types/config'
+import type { BoardCard, BoardItem, CardType, GridCell } from '../types/config'
 
 /** 卡片的落位与占格（拖动 / 缩放松手时提交） */
-export type CardLayout = Pick<ShortcutCard, 'col' | 'row' | 'cols' | 'rows'>
+export type CardLayout = Pick<BoardCard, 'col' | 'row' | 'cols' | 'rows'>
 
 interface CardActions {
   /** 全部卡片（按网格顺序） */
-  cards: ShortcutCard[]
+  cards: BoardCard[]
   /**
-   * 在网格上新建一张卡片（默认无标题）。
-   * @param at 落位左上角；不传时按已有卡片数量纵向错开（首屏会由布局引擎修复到真正的空位）
+   * 在网格上新建一张指定类型的卡片。
+   * @param type 卡片类型（见 CardType）
+   * @param at 落位左上角；不传时摞在所有卡片下面（首屏会由布局引擎修复到真正的空位）
    */
-  addCard: (at?: GridCell) => void
+  addCard: (type: CardType, at?: GridCell) => void
   /**
-   * 删除卡片：卡片内的快捷方式放回网格末尾。
+   * 删除卡片：文件夹卡片内的快捷方式放回网格末尾（不丢数据）；组件卡直接移除（内容随卡片一起删）。
    * @param release 释放出来的快捷方式各自的落位（数量不足时其余先放 (0,0)
    *                再由布局引擎修复到空位，不会丢数据）
    */
@@ -29,6 +31,28 @@ interface CardActions {
   renameCard: (cardId: string, name: string) => void
   /** 更新卡片位置与占格数 */
   updateCardLayout: (cardId: string, layout: CardLayout) => void
+  /** 更新卡片内容字段（组件卡用：noteText / events / html / photos / photoIntervalMin 等） */
+  updateCard: (cardId: string, partial: Partial<BoardCard>) => void
+}
+
+/** 按类型拼一张新卡片（各类型载荷给空值；文件夹卡不显示标题，组件卡用类型名当默认标题） */
+function createCard(type: CardType, col: number, row: number): BoardCard {
+  const meta = cardTypeMeta(type)
+  return {
+    id: makeId('card'),
+    type,
+    name: type === 'folder' ? '' : meta.label,
+    col,
+    row,
+    cols: meta.cols,
+    rows: meta.rows,
+    sites: [],
+    noteText: '',
+    events: [],
+    html: '',
+    photos: [],
+    photoIntervalMin: PHOTO_INTERVAL_DEFAULT,
+  }
 }
 
 export function useCardActions(): CardActions {
@@ -36,7 +60,7 @@ export function useCardActions(): CardActions {
   const cards = config.board.flatMap((item) => (item.kind === 'card' ? [item.card] : []))
 
   /** 对 board 中指定卡片做不可变替换 */
-  const mapCard = (cardId: string, transform: (card: ShortcutCard) => ShortcutCard) => {
+  const mapCard = (cardId: string, transform: (card: BoardCard) => BoardCard) => {
     updateConfig((prev) => ({
       ...prev,
       board: prev.board.map((item) =>
@@ -47,22 +71,14 @@ export function useCardActions(): CardActions {
     }))
   }
 
-  const addCard = (at?: GridCell) => {
+  const addCard = (type: CardType, at?: GridCell) => {
     updateConfig((prev) => {
       // 未指定落位时摞在所有卡片下面（首屏仍会由布局引擎夹取到区域内）
       const below = prev.board.reduce((max, item) => {
         if (item.kind !== 'card') return max
         return Math.max(max, item.card.row + item.card.rows)
       }, 0)
-      const card: ShortcutCard = {
-        id: makeId('card'),
-        name: '',
-        sites: [],
-        col: at ? Math.round(at.col) : 0,
-        row: at ? Math.max(0, Math.round(at.row)) : below,
-        cols: CARD_DEFAULT_COLS,
-        rows: CARD_DEFAULT_ROWS,
-      }
+      const card = createCard(type, at ? Math.round(at.col) : 0, at ? Math.max(0, Math.round(at.row)) : below)
       const item: BoardItem = { kind: 'card', card }
       return { ...prev, board: [...prev.board, item] }
     })
@@ -75,7 +91,7 @@ export function useCardActions(): CardActions {
           item.kind === 'card' && item.card.id === cardId,
       )
       if (!target) return prev
-      // 卡片内的快捷方式放回网格，不丢数据
+      // 文件夹卡片内的快捷方式放回网格，不丢数据；组件卡没有站点，released 为空
       const released: BoardItem[] = target.card.sites.map((site, index) => {
         const cell = release?.[index]
         return { kind: 'site', site, col: cell ? cell.col : 0, row: cell ? cell.row : 0 }
@@ -99,5 +115,9 @@ export function useCardActions(): CardActions {
     }))
   }
 
-  return { cards, addCard, removeCard, renameCard, updateCardLayout }
+  const updateCard = (cardId: string, partial: Partial<BoardCard>) => {
+    mapCard(cardId, (card) => ({ ...card, ...partial }))
+  }
+
+  return { cards, addCard, removeCard, renameCard, updateCardLayout, updateCard }
 }

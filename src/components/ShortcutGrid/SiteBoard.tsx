@@ -82,12 +82,11 @@ export default function SiteBoard({
   return (
     <>
       <div
-        className={`${styles.grid} ${grid.hoverZoom ? styles.gridZoom : ''}`}
+        className={`${styles.grid} ${styles.gridZoom}`}
         style={{
           gridTemplateColumns: `repeat(${columns}, ${metrics.tileWidth}px)`,
           gridAutoRows: `${metrics.tileHeight}px`,
-          columnGap: grid.columnGap,
-          rowGap: grid.rowGap,
+          gap: grid.gap,
         }}
       >
         {sites.map((site) => (

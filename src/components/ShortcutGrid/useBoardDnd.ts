@@ -7,12 +7,11 @@
  */
 import { useEffect, useState } from 'react'
 import type { RefObject } from 'react'
-import { CARD_DEFAULT_COLS, CARD_DEFAULT_ROWS } from '../../config/defaultConfig'
 import { useConfig } from '../../store/ConfigContext'
 import { useBoardActions } from '../../store/useGroupActions'
 import { useCardActions } from '../../store/useCardActions'
 import type { CardLayout } from '../../store/useCardActions'
-import type { GridCell, GridSettings, ShortcutCard } from '../../types/config'
+import type { BoardCard, GridCell, GridSettings } from '../../types/config'
 import { cardCellsOf, clampPlacement, placeBlock, placementsOverlap, takeFreeCells, tryDrop } from './boardLayout'
 import type { BoardPlan, CardPlacement, CellGrid, PlacedBlock } from './boardLayout'
 import { useBoardDrag } from './useDragSort'
@@ -41,7 +40,7 @@ export interface BoardDndResult {
   /** 卡片布局校验：越出窗口 / 压到别的卡片时返回 false */
   validateCardLayout: (selfId: string, next: CardLayout) => boolean
   /** 给"新建卡片"找一块放得下的空位（**绝对**格子；null = 窗口里没有空位） */
-  findCardSlot: () => GridCell | null
+  findCardSlot: (cols: number, rows: number) => GridCell | null
   /** 删除卡片时，给它里面的快捷方式安排网格落点（**绝对**格子） */
   releaseCells: (cardId: string, count: number) => GridCell[]
 }
@@ -69,8 +68,8 @@ export function useBoardDnd(
   const [highlight, setHighlight] = useState<GridCell[]>([])
 
   /** 单格步长（含间距） */
-  const cellWidth = metrics.tileWidth + grid.columnGap
-  const cellHeight = metrics.tileHeight + grid.rowGap
+  const cellWidth = metrics.tileWidth + grid.gap
+  const cellHeight = metrics.tileHeight + grid.gap
 
   /** 窗口内局部格子 → 配置里的绝对格子（只在写回配置时用） */
   const toAbsolute = (cell: GridCell): GridCell => ({ col: cell.col + metrics.startCol, row: cell.row })
@@ -106,7 +105,7 @@ export function useBoardDnd(
     })
 
   /** 卡片在窗口里的落位（null = 这张卡片不在窗口内，不参与碰撞判定） */
-  const cardPlacementOf = (card: ShortcutCard): CardPlacement | null => {
+  const cardPlacementOf = (card: BoardCard): CardPlacement | null => {
     const at = plan.cardCells.get(card.id)
     if (!at) return null
     return { col: at.col, row: at.row, cols: card.cols, rows: card.rows }
@@ -275,9 +274,9 @@ export function useBoardDnd(
     })
   }
 
-  /** 新卡片放得下的空位（返回**绝对**格子，可直接交给 addCard） */
-  const findCardSlot = (): GridCell | null => {
-    const slot = placeBlock(plan.grid, { col: 0, row: 0 }, CARD_DEFAULT_COLS, CARD_DEFAULT_ROWS)
+  /** 新卡片放得下的空位（返回**绝对**格子，可直接交给 addCard）；cols / rows 由卡片类型决定 */
+  const findCardSlot = (cols: number, rows: number): GridCell | null => {
+    const slot = placeBlock(plan.grid, { col: 0, row: 0 }, cols, rows)
     return slot ? toAbsolute(slot) : null
   }
 

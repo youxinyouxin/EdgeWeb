@@ -1,0 +1,118 @@
+/* 天气胶囊 + 悬停详情弹窗（右上角工具条内，压在壁纸上） */
+
+/* 包裹层：相对定位，作为详情弹窗的定位锚点 */
+.root {
+  position: relative;
+}
+
+/* 胶囊：城市名 + 图标 + 温度；透明底、悬停浅底，文字白色带阴影（壁纸上可读） */
+.capsule {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 18px;
+  color: var(--color-on-wallpaper);
+  font-size: 14px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+  transition: background-color 0.15s ease;
+}
+
+.capsule:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.city {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.emoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.temp {
+  font-weight: 600;
+}
+
+/* 详情弹窗：白底大圆角卡片，浮在胶囊下方 */
+.detail {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  width: 236px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-panel-bg);
+  color: var(--color-panel-text);
+  border: 1px solid var(--color-panel-border);
+  box-shadow: var(--shadow-panel);
+  /* 悬停弹窗本身不拦截点击（避免挡住其它按钮），但内部元素可交互 */
+  cursor: default;
+}
+
+.detailHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.detailEmoji {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.detailTemp {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.detailSub {
+  font-size: 12px;
+  color: var(--color-panel-sub);
+}
+
+/* 未来 3 天预报 */
+.forecast {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.forecastRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.forecastDay {
+  width: 40px;
+  color: var(--color-panel-sub);
+}
+
+.forecastEmoji {
+  width: 22px;
+  text-align: center;
+}
+
+.forecastTemp {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 湿度 / 风速 */
+.meta {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-panel-border);
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--color-panel-sub);
+}

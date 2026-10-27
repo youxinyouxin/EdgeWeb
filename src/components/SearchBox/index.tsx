@@ -33,7 +33,7 @@ export default function SearchBox() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const history = useSearchHistory()
-  const suggestions = useSuggest(query, config.search.suggest)
+  const suggestions = useSuggest(query)
 
   /** 下拉面板当前应展示的条目：空输入 → 历史；有输入 → 联想 */
   const dropdownItems = useMemo<string[]>(() => {

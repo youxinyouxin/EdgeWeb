@@ -4,16 +4,16 @@
  * - 面板从按钮下方缩放 + 淡入展开（约 200ms，仿 Edge）
  * - 点击空白处 / × / 再次点击按钮 / Esc 关闭
  * - 所有设置项即改即存（写入由 ConfigContext 完成）
+ * 分组（6 组）：快速链接和搜索 / 卡片 / 搜索 / 天气 / 壁纸与外观 / 数据
  */
 import { useEffect, useRef, useState } from 'react'
 import { CloseIcon, GearIcon } from '../icons'
-import AppearanceSection from './sections/AppearanceSection'
 import CanvasSection from './sections/CanvasSection'
-import ContentSection from './sections/ContentSection'
 import DataSection from './sections/DataSection'
 import QuickLinksSection from './sections/QuickLinksSection'
 import SearchSection from './sections/SearchSection'
 import WallpaperSection from './sections/WallpaperSection'
+import WeatherSection from './sections/WeatherSection'
 import styles from './SettingsPanel.module.css'
 
 export default function SettingsPanel() {
@@ -62,9 +62,8 @@ export default function SettingsPanel() {
             <QuickLinksSection />
             <CanvasSection />
             <SearchSection />
-            <ContentSection />
+            <WeatherSection />
             <WallpaperSection />
-            <AppearanceSection />
             <DataSection />
           </div>
         </div>

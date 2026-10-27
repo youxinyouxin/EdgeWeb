@@ -1,11 +1,12 @@
 /**
- * 设置分组：壁纸。
- * 模式、图片来源（URL / 本地路径输入，或选择小图片转内联存储）、轮换间隔、遮罩暗度与模糊。
+ * 设置分组：壁纸与外观（两组已合并）。
+ * 壁纸：模式、图片来源（URL / 本地路径输入，或选择小图片转内联存储）、轮换间隔、遮罩暗度与模糊。
+ * 外观：主题模式、入场动画。
  */
 import { useRef, useState } from 'react'
 import { useConfig } from '../../../store/ConfigContext'
 import { SectionCard } from '../SectionCard'
-import { PanelButton, Select, SettingRow, Slider, TextInput } from '../controls'
+import { PanelButton, Select, SettingRow, Slider, Switch, TextInput } from '../controls'
 import controlStyles from '../controls.module.css'
 import styles from '../SettingsPanel.module.css'
 
@@ -41,7 +42,7 @@ export default function WallpaperSection() {
   }
 
   return (
-    <SectionCard title="壁纸">
+    <SectionCard title="壁纸与外观">
       <SettingRow label="模式">
         <Select
           value={wallpaper.mode}
@@ -143,6 +144,25 @@ export default function WallpaperSection() {
           max={20}
           unit="px"
           onChange={(value) => patch('wallpaper', { blur: value })}
+        />
+      </SettingRow>
+
+      <SettingRow label="主题">
+        <Select
+          value={config.appearance.theme}
+          options={[
+            { value: 'auto', label: '跟随壁纸自动' },
+            { value: 'light', label: '浅色' },
+            { value: 'dark', label: '深色' },
+          ]}
+          onChange={(value) => patch('appearance', { theme: value })}
+        />
+      </SettingRow>
+
+      <SettingRow label="入场动画" hint="搜索框 → 宫格 → 组件依次淡入">
+        <Switch
+          checked={config.appearance.entranceAnimation}
+          onChange={(value) => patch('appearance', { entranceAnimation: value })}
         />
       </SettingRow>
 

@@ -85,14 +85,14 @@ export function useGridMetrics(
   return useMemo(() => {
     const tileWidth = Math.max(grid.iconSize + 24, MIN_TILE_WIDTH)
     const tileHeight = grid.iconSize + TILE_EXTRA_HEIGHT
-    const pitch = tileWidth + grid.columnGap
+    const pitch = tileWidth + grid.gap
     const axisCol = Math.max(1, Math.round(grid.axisCol) || DEFAULT_AXIS_COL)
     const sideInset = tileWidth * BOARD_SIDE_INSET_CELLS
 
     // 容器能容纳的列数（先扣掉左右各一个图标格的留白；首帧量不到宽度时用占位值）
     const contentWidth = Math.max(0, size.width - sideInset * 2)
     const fitByWidth =
-      size.width > 0 ? Math.floor((contentWidth + grid.columnGap) / pitch) : FALLBACK_FIT
+      size.width > 0 ? Math.floor((contentWidth + grid.gap) / pitch) : FALLBACK_FIT
     // 自动适应 = 尽量铺满容器宽度；手动指定 = 只用容器的**占比**宽度来排格子。
     // 两种模式都由容器宽度算起：窗口变窄列数就减少（左右对称各减一列），变宽就增多，两侧空间都能用
     const ratio = clamp(Math.round(grid.perRowPercent), PERCENT_MIN, PERCENT_MAX) / 100
@@ -106,13 +106,11 @@ export function useGridMetrics(
     const startCol = axisCol - half
 
     // 左右内边距 = （容器宽 − 窗口宽）/ 2：由它把窗口摆到中轴居中，且各 ≥ 一个图标格
-    const trackWidth = perRowCount * pitch - grid.columnGap
+    const trackWidth = perRowCount * pitch - grid.gap
     const gridPadding = Math.max(0, (size.width - trackWidth) / 2)
 
     const rowsFit =
-      size.height > 0
-        ? Math.max(1, Math.floor((size.height + grid.rowGap) / (tileHeight + grid.rowGap)))
-        : 1
+      size.height > 0 ? Math.max(1, Math.floor((size.height + grid.gap) / (tileHeight + grid.gap))) : 1
 
     return {
       perRowCount,
@@ -127,8 +125,7 @@ export function useGridMetrics(
     grid.iconSize,
     grid.perRowPercent,
     grid.perRowMode,
-    grid.columnGap,
-    grid.rowGap,
+    grid.gap,
     grid.axisCol,
     size.width,
     size.height,

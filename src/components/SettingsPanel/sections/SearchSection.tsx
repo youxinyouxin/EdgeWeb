@@ -1,6 +1,6 @@
 /**
  * 设置分组：搜索。
- * 联想补全开关、历史记录开关、清空历史（立即生效并短暂提示）。
+ * 历史记录开关、清空历史（立即生效并短暂提示）；联想补全固定开启，不提供开关。
  */
 import { useState } from 'react'
 import { useConfig } from '../../../store/ConfigContext'
@@ -21,14 +21,7 @@ export default function SearchSection() {
 
   return (
     <SectionCard title="搜索">
-      <SettingRow label="搜索联想补全">
-        <Switch
-          checked={config.search.suggest}
-          onChange={(value) => patch('search', { suggest: value })}
-        />
-      </SettingRow>
-
-      <SettingRow label="记录搜索历史">
+      <SettingRow label="记录搜索历史" hint="关闭后不再记录，也不展示历史">
         <Switch
           checked={config.search.historyEnabled}
           onChange={(value) => patch('search', { historyEnabled: value })}

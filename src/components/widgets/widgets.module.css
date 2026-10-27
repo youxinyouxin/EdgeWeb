@@ -1,0 +1,239 @@
+/* 组件卡（时钟 / 便签 / 倒计时 / 自定义 HTML / 照片）的内容样式。
+   卡片底衬是深色玻璃，所以这里的文字与输入控件统一用壁纸上的白色系。 */
+
+/* —— 时钟 —— */
+.clock {
+  text-align: center;
+}
+
+.clockTime {
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-on-wallpaper);
+}
+
+.clockDate {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--color-on-wallpaper-sub);
+}
+
+/* —— 便签 —— */
+.note {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 60px;
+  resize: none;
+  background: transparent;
+  color: var(--color-on-wallpaper);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.note::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* —— 倒计时 / 纪念日 —— */
+.countdown {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  color: var(--color-on-wallpaper);
+}
+
+.empty {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+}
+
+.eventList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.eventItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.eventName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eventDays {
+  color: rgba(255, 255, 255, 0.82);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 卡片内的输入控件：半透明浅底 + 白字，与深色玻璃底协调 */
+.eventInput {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--color-on-wallpaper);
+  font-size: 12px;
+}
+
+.eventDateInput {
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--color-on-wallpaper);
+  font-size: 12px;
+}
+
+.eventInput::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.removeButton {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.removeButton:hover {
+  color: #ff8a80;
+}
+
+.addForm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* 卡片内的文字按钮（编辑 / 完成 / 添加 / 选择本地图片） */
+.linkButton {
+  align-self: flex-start;
+  margin-top: 8px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.linkButton:hover {
+  color: #fff;
+}
+
+/* —— 自定义 HTML —— */
+.htmlWrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  color: var(--color-on-wallpaper);
+}
+
+.html {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  font-size: 13px;
+}
+
+.html img {
+  max-width: 100%;
+}
+
+/* 就地编辑区（自定义 HTML / 照片共用） */
+.editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.codeInput,
+.photoInput {
+  flex: 1;
+  min-height: 56px;
+  resize: none;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--color-on-wallpaper);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.codeInput::placeholder,
+.photoInput::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* —— 照片 —— */
+.photo {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.photoStage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.photoImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 第 N / 共 M 张 */
+.photoCount {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.intervalLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.intervalInput {
+  width: 46px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--color-on-wallpaper);
+  font-size: 12px;
+}
+
+.hiddenInput {
+  display: none;
+}

@@ -1,11 +1,11 @@
 /**
  * 设置分组：快速链接和搜索。
- * 这些布局项作用于统一网格里的所有格子（散落快捷方式与卡片内宫格共用同一套格子）。
- * 网格是一张**固定的网格**（居中、左右各留一个图标格），所以没有"行数 / 分页"设置（AGENTS.md §3.2）。
+ * 这些布局项作用于统一网格里的所有格子（散落快捷方式、卡片内宫格与组件卡共用同一套格子）。
+ * 网格是一张**固定的网格**（中轴居中、按容器宽度向两侧对称延伸），所以没有"行数 / 分页"设置（AGENTS.md §3.2）。
  */
 import { useConfig } from '../../../store/ConfigContext'
 import { SectionCard } from '../SectionCard'
-import { Select, SettingRow, Slider, Switch } from '../controls'
+import { Select, SettingRow, Slider } from '../controls'
 import styles from '../controls.module.css'
 
 export default function QuickLinksSection() {
@@ -18,7 +18,7 @@ export default function QuickLinksSection() {
         网格以中轴为界、按页面宽度向两侧对称延伸（中轴恒在正中，左右各留一个图标格）：
         窗口变窄就左右各少一列，变宽就各多一列 —— 两侧空间都能放图标，放不下的条目只是暂时隐藏
         （坐标不变，窗口变宽就回来）。"自动适应"= 铺满页面宽度；"手动指定"= 按占页面宽度的比例排格子。
-        图标大小与间距对散落快捷方式与卡片内宫格同时生效；改动后卡片与图标都按整格重排。
+        图标大小与间距对散落快捷方式、卡片内宫格同时生效；改动后卡片与图标都按整格重排。
       </p>
 
       <SettingRow label="每行个数">
@@ -56,32 +56,14 @@ export default function QuickLinksSection() {
         />
       </SettingRow>
 
-      <SettingRow label="行间距">
+      <SettingRow label="间距" hint="行间距与列间距共用同一个值">
         <Slider
-          value={grid.rowGap}
-          min={8}
+          value={grid.gap}
+          min={4}
           max={64}
           step={2}
           unit="px"
-          onChange={(value) => patch('grid', { rowGap: value })}
-        />
-      </SettingRow>
-
-      <SettingRow label="列间距">
-        <Slider
-          value={grid.columnGap}
-          min={8}
-          max={64}
-          step={2}
-          unit="px"
-          onChange={(value) => patch('grid', { columnGap: value })}
-        />
-      </SettingRow>
-
-      <SettingRow label="悬停放大动效">
-        <Switch
-          checked={grid.hoverZoom}
-          onChange={(value) => patch('grid', { hoverZoom: value })}
+          onChange={(value) => patch('grid', { gap: value })}
         />
       </SettingRow>
 

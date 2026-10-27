@@ -5,7 +5,7 @@
  * - tryDrop：拖拽落点判定。把目标格占住，被它盖住的图标各自挪到最近的空位；
  *   只要有一块挪不动就整次失败，由调用方拒绝这次拖动。
  */
-import type { BoardItem, GridCell, ShortcutCard } from '../../types/config'
+import type { BoardItem, BoardCard, GridCell } from '../../types/config'
 
 /** 占位图：[行][列]，true = 已被占住 */
 export type CellGrid = boolean[][]
@@ -264,7 +264,7 @@ export function takeFreeCells(grid: CellGrid, count: number): GridCell[] {
 }
 
 /** 卡片落在某个格子时占用的全部格子（拖拽落点判定用） */
-export function cardCellsOf(card: ShortcutCard, at: GridCell): GridCell[] {
+export function cardCellsOf(card: BoardCard, at: GridCell): GridCell[] {
   const cells: GridCell[] = []
   for (let row = at.row; row < at.row + card.rows; row += 1) {
     for (let col = at.col; col < at.col + card.cols; col += 1) cells.push({ col, row })

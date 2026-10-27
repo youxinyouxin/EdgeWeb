@@ -200,6 +200,13 @@
 }
 
 /* —— 网格下方的"新建卡片"按钮 —— */
+/* "新建卡片"按钮的外层：作为类型菜单的定位祖先（菜单浮在按钮上方） */
+.addCardWrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
 .addCard {
   display: inline-flex;
   align-items: center;

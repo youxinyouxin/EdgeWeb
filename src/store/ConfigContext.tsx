@@ -10,15 +10,8 @@ import type { ReactNode } from 'react'
 import type { AppConfig } from '../types/config'
 import { loadConfig, saveConfig } from './storage'
 
-/** 支持"局部 patch 合并"的对象型分区（数组型 groups 请用 updateConfig 整体替换） */
-type ObjectSectionKey =
-  | 'search'
-  | 'grid'
-  | 'wallpaper'
-  | 'weather'
-  | 'widgets'
-  | 'appearance'
-  | 'content'
+/** 支持"局部 patch 合并"的对象型分区（board 等数组型数据请用 updateConfig 整体替换） */
+type ObjectSectionKey = 'search' | 'grid' | 'wallpaper' | 'weather' | 'appearance'
 
 interface ConfigContextValue {
   /** 当前生效的完整配置 */
